@@ -1,0 +1,101 @@
+例子是
+"""
+@tf.function(jit_compile=True)
+def fn(...):
+    ....
+res = fn(...).numpy()
+""" 假设jit生成的fn的name是 _infer_fn_11
+
+tensorflow\core\common_runtime\eager\execute.cc:#850  GetOrCreateKernelAndDevice()
+前面一堆找不到_infer_fn_11 op的处理,然后定位该_infer_fn_11 op应该是xla fn op,需要创建和编译一个
+tensorflow\core\common_runtime\eager\execute.cc:#850  GetOrCreateKernelAndDevice()-> #1093 kernel->Init() -> KernelAndDevice::Init()
+tensorflow\core\common_runtime\eager\kernel_and_device.cc#101 KernelAndDevice::Init() -> 'flr_->CreateKernel(props, &k)' flr_是FunctionLibraryRuntime
+tensorflow\core\common_runtime\function.cc#611 FunctionLibraryRuntimeImpl::CreateKernel() #621 'custom_kernel_creator->CreateKernel(' ??? 怀疑该情况下调的是XlaKernelCreator::CreateKernel() 但没理清调用路径
+tensorflow\compiler\jit\xla_kernel_creator.cc:49 CreateXlaKernel()
+tensorflow\compiler\jit\xla_kernel_creator.cc:49 CreateXlaKernel() -> 'XlaOpRegistry::RegisterCompilationKernels()'
+tensorflow\compiler\tf2xla\xla_op_registry.cc:328 XlaOpRegistry::RegisterCompilationKernels()    或有自定义xla op的线索
+tensorflow\core\framework\function.cc:747 InstantiateFunction() ??? 怎么到这里的,没理清调用路径
+tensorflow\core\graph\graph.cc:585  AddNode() ??? 怎么到这里的,没理清调用路径
+
+execute.cc#1286 EagerLocalExecute() -> 'ValidateInputTypeAndPlacement('
+tensorflow\core\common_runtime\eager\execute.cc:241 ValidateInputTypeAndPlacement()
+execute.cc:1292 EagerLocalExecute() -> 'AddOrExecuteNode(std::move(kernel), op, retvals)'
+execute.cc#1221 AddOrExecuteNode() -> 'executor.SyncExecute(&node)'
+EagerExecutor::SyncExecute()->ExecuteNode::Run()->execute.cc.EagerKernelExecute()->KernelAndDeviceOp::Run() 
+tensorflow\core\common_runtime\gpu\gpu_device.cc:653  BaseGPUDevice::Compute() -> #672 'op_kernel->Compute(context)'
+tensorflow\compiler\jit\kernels\xla_ops.cc:227 XlaLocalLaunchBase::Compute() 其中function_.name()是_infer_fn_11
+    xla_ops.cc#243 -> #173 CompileToLocalExecutable() -> #191 'rm->LookupOrCreate<XlaCompilationCache>('
+    在[1]中提到#393 XlaCompileOp::Compute() 在#428也会调用#173 CompileToLocalExecutable(), 可能来着来自不同的py调用方式???
+在localhost/xla_cache找不到对应的编译后缓存
+xla_ops.cc#194 CompileToLocalExecutable()中调用'BuildXlaCompilationCache('创建XlaCompilationCache
+tensorflow\compiler\jit\xla_platform_info.cc#43 BuildXlaCompilationCache()
+tensorflow\compiler\jit\kernels\xla_ops.cc#222 CompileToLocalExecutable() 调 'cache->Compile('
+tensorflow\compiler\jit\xla_compilation_cache.cc#565 XlaCompilationCache::Compile->XlaCompilationCache::CompileImpl()->#666 XlaCompilationCache::CompileStrict() 该路径和[1]描述的一样
+  xla_compilation_cache.cc#405 XlaCompilationCache::CompileStrict 
+    #422 CompileStrict()中'compiler.CompileFunction(' 以下路径和[1]中关于tf2xla模块的描述一样
+    tensorflow\compiler\tf2xla\xla_compiler.cc#736 XlaCompiler::CompileFunction()
+      #754 'FindFunctionBody('
+      #845 'CompileGraph(options' 由于mlir尚在实验中,所以走的是'old bridege'分支, 若要用mlir需要enable它
+      xla_compiler.cc#1316 XlaCompiler::CompileGraph()
+        #1397 'ExecuteGraph(' xla_compiler#124 ExecuteGraph()
+          'GraphCompiler graph_compiler(' 然后 graph_compiler.Compile()
+            tensorflow\compiler\tf2xla\graph_compiler.cc#111 GraphCompiler::Compile()
+              'GetReversePostOrder(*graph_, &topo_sorted_nodes' [1]拓扑序遍历所有节点 (后序深度遍历graph得到排序后的节点)
+              'flib_->CreateKernel(' [1]为每个Node中的Op创建其对应的XlaOpKernelhttps://
+                core\common_runtime\function.cc#611 FunctionLibraryRuntimeImpl::CreateKernel() #621 'custom_kernel_creator->CreateKernel(' ??? 怀疑该情况下调的是XlaKernelCreator::CreateKernel() 但没理清调用路径
+                得到的是XlaOpKernel 
+              'device_->Compute(' [1]执行每个Kernel的Compute
+                tensorflow\compiler\tf2xla\xla_compilation_device.cc#101 XlaCompilationDevice::Compute()
+                'op_kernel->Compute(context)' 调每个XlaOpKernel的Compute
+        #1423 'BuildComputation(' xla_compiler#166 BuildComputation()
+          #424 'builder->Build()' [1]调用xla/client模块提供的XlaBuilder::Build得到XlaComputation, 也就是新的计算图的表达方式，HloModuleProto
+            tensorflow\compiler\xla\client\xla_builder.cc#468 XlaBuilder::Build()
+              'XlaComputation computation(entry.id())'
+    END of CompileFunction (TODO 搞清楚[1]提及的XlaBuilder,XlaOpKernel的互动,以及如何把Tensorflow Graph转化为HloModuleProto)
+    #429 XlaCompilationCache::CompileStrict()中'BuildExecutable('
+    jit\xla_compilation_cache.cc#213 XlaCompilationCache::BuildExecutable()
+      xla_compilation_cache.cc#241 'client_->Compile(*' 是tensorflow\compiler\xla\client\local_client.cc#358 LocalClient::Compile()
+        xla\client\local_client.cc#386 'local_service_->CompileExecutables(' 
+        [1]LocalClient::Compile配合JIT模块将HloModuleProto转为LocalExecutable. 查看实现可知这是xla/service模块的LocalService::CompileExecutables的一层封装
+        [1]LocalExecutable供JIT模块真正执行。查看实现可知这是xla/service模块的Executable::ExecuteAsyncOnStreamWrapper的一层封装
+        tensorflow\compiler\xla\service\local_service.cc#101 LocalService::CompileExecutables()
+          #181 'return BuildExecutables(' 就是调 Service::BuildExecutables()
+          tensorflow\compiler\xla\service\service.cc#288 Service::BuildExecutables()
+            #314 'backend->compiler()->Compile('  backend和backend->compiler()具体是啥见下面:
+              Backend及其对应的GPU或CPU Compiler之类的,是在加载时形成了一个map,然后在调XlaLocalLaunchBase构造函数时创建XlaPlatformInfoFromDevice时根据对应的device(CPU/GPU/TPU)来获取的
+              xla/service/[device_name]/下的[device]_compiler.cc(有些叫[device]_compiler_registration.cc)会调用xla/service/compiler.cc的xla::Compiler::RegisterCompilerFactory()去注册自己
+              Compiler::RegisterCompilerFactory()注册时,cuda对应的是NVPTXCompiler
+            最终调的是NVTPXCompiler.Compile() NVPTXCompiler在tensorflow\compiler\xla\service\gpu\nvptx_compiler.cc
+            NVPTXCompiler继承自GpuCompiler进而继承自LLVMCompiler,所以调的是LLVMCompiler.Compile()
+            tensorflow\compiler\xla\service\llvm_compiler.cc的Compile()中调RunHloPasses()基于HLO做硬件无关优化,RunBackend()把HLO转成LLVM IR,同时做硬件相关的优化,最终得到ptx和cubin以供执行.[1]
+              RunHloPasses()是GpuCompiler.RunHloPasses(),在tensorflow\compiler\xla\service\gpu\gpu_compiler.cc
+                调用路径: GpuCompiler.RunHloPasses()->GpuCompiler.OptimizeHloModule()->NVPTXCompiler.OptimizeHloConvolutionCanonicalization()->NVPTXCompiler.OptimizeHloPostLayoutAssignment()
+                GpuCompiler.OptimizeHloModule()中有大量优化用的pass,也调用了NVPTXCompiler本身的方法做cuda相关的pass[1]
+              RunBackend()也是GpuCompiler::RunBackend(): HLO->LLVM->PTX+CuBin, ???貌似这里不再有优化?还是用的是LLVM的优化?因为要转成LLVM IR?
+                CompileModuleToLlvmIrImpl()把HLO转成LLVM IR 
+                  用到IrEmitterUnnested::EmitLmhloRegion, 其中的EmitOp就是给每个OP做Codegen得到LLVM IR [1]
+                CompileToTargetBinary()->NVPTXCompiler::CompileTargetBinary()生成ptx和cubin [1]
+  
+LLVMCompiler::Compile
+Compiler::Compile
+Service::BuildExecutables
+LocalService::CompileExecutables
+
+xla/service/compiler.h的Compiler之继承层级,下面的除了tpu,其它都在xla/service/[device_name]/下:
+LLVMCompiler : public Compiler, InterpreterCompiler : public Compiler, TpuCompiler : public Compiler
+GpuCompiler : public LLVMCompiler , CpuCompiler : public LLVMCompiler
+NVPTXCompiler : public GpuCompiler, AMDGPUCompiler : public GpuCompiler
+
+NVPTXCompiler, GpuCompiler 的Compile()调的是LLVMCompiler::Compile()
+NVPTXCompiler.RunHolPasses()是GpuCompiler的->GpuCompiler.OptimizeHloModule()->NVPTXCompiler.OptimizeHloConvolutionCanonicalization()->NVPTXCompiler.OptimizeHloPostLayoutAssignment()
+
+
+RunHloPasses, 对应于下图的硬件无关优化
+RunBackend, 对应于下图的硬件相关优化以及Codegen
+
+
+
+
+
+
+[1] XLA深入解读 (https://zhuanlan.zhihu.com/p/427444916)

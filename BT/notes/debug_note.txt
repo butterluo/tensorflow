@@ -1,0 +1,16 @@
+
+tensorflow\core\platform\default\logging.h  #42 log level 常量值
+tensorflow\core\platform\default\logging.cc  #351 VmoduleActivated() -> MaxVLogLevel()  环境变量 TF_CPP_MAX_VLOG_LEVEL 设置为大于所有log level即可打开所有日志. 同时将环境变量TF_CPP_MIN_LOG_LEVEL设0,貌似日志会多一点,但又不大重要.
+python用import logging的 logging.basicConfig()配置,网上有很多教程,level=NOTSET
+tf.debugging.set_log_device_placement(True)
+
+tf.config.run_functions_eagerly(False) #这样@tf.function才可以以grh模式运行
+设环境变量TF_XLA_FLAGS="--tf_xla_auto_jit=2 --tf_xla_cpu_global_jit --tf_xla_enable_xla_devices" 会打开所有xla jit,详见tensorflow\compiler\jit\flags.cc 在aot文件夹中另有一个flags.cc是关于aot选项的
+
+
+cpp和py之间的门面命名在cpp中一般是*_wrapper, 到了py的名字会变为pywrap_*, 比如tfe_wrapper.cc=>pywrap_tfe.py, tf_session_wrapper.cc=>pywrap_tf_session.py, 
+  除了pywrap_tensorflow和_pywrap_tensorflow_internal???
+
+
+
+

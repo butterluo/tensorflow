@@ -1,0 +1,131 @@
+Op注册:
+参考 https://tensorflow.google.cn/guide/create_op  以 'c = tf.matmul(a, b)' 为例
+Op:
+加载tensorflow\core\ops\math_ops.cc#942时会注册'REGISTER_OP("MatMul")'来注册MatMul这个op
+REGISTER_OP宏在#300, 最终会调用#294的REGISTER_OP_IMPL宏
+    TF_INIT_ON_STARTUP_IF宏在tensorflow\core\framework\registration\registration.h#133它在REGISTER_KERNEL_BUILDER_IMPL_3宏中也用到
+    这里用TF_INIT_ON_STARTUP_IF其实就是执行了OpDefBuilderWrapper(name)以及math_ops.cc中的一些列Input/Attr之类的函数(对应OpDefBuilderWrapper实例的相关函数),然后执行OpDefBuilderWrapper::operator() (参考registration.h#111)
+        OpDefBuilderWrapper(name)在op.h#222,它构建了OpDefBuilder(tensorflow\core\framework\op_def_builder.h#116),而wrapper的各种函数其实就是调用builder_的相应函数
+        OpDefBuilderWrapper::operator(op.cc#295)
+            通过OpRegistry::Global()生成单例的OpRegistry
+            把builder.Finalize封装成闭包作为OpRegistrationDataFactory调用OpRegistry::Register(op.cc#60)
+                把传入的OpRegistrationDataFactory保存在OpRegistry.deferred_中
+                    (第一次调OpRegistry::Global()->Lookup()时会把deferred_中的OpRegistrationDataFactory
+                        通过OpRegistry::MustCallDeferred()->RegisterAlreadyLocked()用factory创建出OpRegistrationData并初始化到registry_中,对应的key是op_def.name())
+Op对应的Kernel:
+tensorflow\core\kernels\matmul_op_impl.h 末尾:
+"""
+  REGISTER_KERNEL_BUILDER(                                                \
+      Name("MatMul").Device(DEVICE_GPU).TypeConstraint<TYPE>("T"),        \  \\Name类是KernelDefBuilder的子类,在op_kernel.h#1385,用于构建KernelDef
+      BatchMatMulOp<GPUDevice, TYPE, TYPE, TYPE, /* is_legacy_matmul=*/true>)
+"""
+REGISTER_KERNEL_BUILDER宏tensorflow\core\framework\op_kernel.h#1444
+上宏最终会调到这段代码op_kernel.h#1414去注册kernel
+""" 
+#define REGISTER_KERNEL_BUILDER_IMPL_3(ctr, op_name, kernel_builder_expr,   \
+                                       is_system_kernel, ...)               \
+  static ::tensorflow::InitOnStartupMarker const register_kernel_##ctr      \
+      TF_ATTRIBUTE_UNUSED =                                                 \ \\宏 __attribute__((unused)) 表示不要对该变量(register_kernel_##ctr)发出未使用警告
+          TF_INIT_ON_STARTUP_IF(is_system_kernel ||                         \
+                                (SHOULD_REGISTER_OP_KERNEL(#__VA_ARGS__) && \ \\__VA_ARGS__一般是该kernel的OpKernel实现类
+                                 SHOULD_REGISTER_OP(op_name)))              \
+          << ([](::tensorflow::KernelDef const* kernel_def) {               \ \\kernel_def就是下几行kernel_builder_expr.Build()生成的KernelDef
+               ::tensorflow::kernel_factory::OpKernelRegistrar registrar(   \ \\op_kernel.h#1501 OpKernelRegistrar的构造方法会调op_kernel.cc#1239的OpKernelRegistrar::InitInternal()
+                   kernel_def, #__VA_ARGS__,                                \      \\把创建该OpKernel的OpKernelFactory保存到KernelRegistry这个全局map中,而key就是'Key(kernel_def->op(), DeviceType(kernel_def->device_type()),  kernel_def->label());'
+                   [](::tensorflow::OpKernelConstruction* context)          \ \\这个闭包,就是保存在KernelRegistry中的创建对应OpKernel的OpKernelFactory
+                       -> ::tensorflow::OpKernel* {                         \
+                     return new __VA_ARGS__(context);                       \
+                   });                                                      \
+               (void)registrar;                                             \ \\参考 https://stackoverflow.com/questions/28737165 表示不要对该变量(registrar)发出未使用警告
+               return ::tensorflow::InitOnStartupMarker{};                  \
+             })(kernel_builder_expr.Build());                                  \\就是传入的'class Name : public KernelDefBuilder'做了一堆操作后得到的KernelDefBuilder调用了Build()所得到的KernelDef传入该闭包函数
+"""
+tensorflow\core\framework\kernel_def_builder.h#30
+KernelDef是一个proto: core\framework\kernel_def.proto
+tensorflow\core\framework\op_kernel.cc#1068 KernelRegistry
+        // This maps from 'op_type' + DeviceType to the set of KernelDefs and
+        // factory functions for instantiating the OpKernel that matches the
+        // KernelDef.
+
+tensorflow\core\framework\kernel_def_builder.h  KernelDefBuilder  // Builder class passed to the REGISTER_KERNEL_BUILDER() macro.
+
+c = tf.matmul(a, b)
+    math_ops.py中matmul()
+    ->gen_math_ops.py.mat_mul()
+        gen_math_ops.py是生成的,原c文件是math_ops.cc ???但该文件名有多个,不知道是哪个?
+        '_result = pywrap_tfe.TFE_Py_FastPathExecute('调c端代码
+    一般pywrap_tfe对应了_pywrap_tfe.so在python中的wrapper,然后会对应 python/tfe_wrapper.cc作为python到c的门面模式
+tfe_wrapper.cc
+    代码'm.def("TFE_Py_FastPathExecute"'和'return tensorflow::PyoOrThrow(TFE_Py_FastPathExecute_C(args.ptr()));'定义了把c函数TFE_Py_FastPathExecute_C暴露成python函数TFE_Py_FastPathExecute
+->pywrap_tfe_src.cc.TFE_Py_FastPathExecute_C()
+    'TFE_Op* op = GetOp('获取op_name对应的OpRegistrationData及其OpDef
+        在GetOp中,若该thread尚无EagerOperation则CreateOperation(在core/comm_rt/eager/core.cc:161 new了一个空EagerOperation而已)
+            调EagerOperation::Reset(),在里面'OpDefForOp(op, &op_def_)'通过名字获取OpDef
+                core/comm_rt/eager/attr_builder.cc#57 OpDefForOp()
+                    'OpRegistry::Global()->LookUp('获得Op名字对应的OpRegistrationData及其OpDef
+                    (第一次调OpRegistry::Global()->Lookup()时会把deferred_中的OpRegistrationDataFactory
+                        通过OpRegistry::MustCallDeferred()->RegisterAlreadyLocked()用factory创建出OpRegistrationData并初始化到registry_中,对应的key是op_def.name())
+    'TFE_Execute(op, retvals.data(), &num_retvals, status);'就调到了下边的'c/eager/c_api.cc.TFE_execute()'
+->c/eager/c_api.cc.TFE_execute()
+    'unwrapped_op->GetContext()->GetCustomDeviceOpHandler().Execute('
+        c/eager/immediate_execution_operation->core/comm_rt/eager/eager_operation.h 中EagerOperation.GetContext()得到ImmediateExecutionContext
+        c/eager/immediate_execution_context->core/comm_rt/context中EagerContext.GetCustomDeviceOpHandler()得到CustomDeviceOpHandler
+        core/comm_rt/custom_device_op_handler.cc:91中CustomDeviceOpHandler.Execute()中'return op->Execute('
+            擦,EagerOperation::Execute()竟然在core/comm_rt/core.cc:175中.
+            (这里做一些将in&out转成TensorHandler并与计算所需device关联的工作后,调用EagerExecute())
+                core/comm_rt/execute.cc:1633中EagerExecute()在这里分sync,async,remote等分支处理,h中有详细说明
+                    'EagerOpRewriteRegistry::Global()->RunRewrite('提供了一种在不同阶段对op进行优化的机制,优化用的Rewriter要提前register.这里优化后的是out_op,在eager_op_rewrite_registry.cc:44
+                    'EagerOpRewriteRegistry::PRE_EXECUTION, op, &out_op)'这里优化的phase是PRE_EXECUTION
+                Local执行:
+                    execute.cc的EagerLocalExecute()同样的,在h中有说明
+                        'EagerOpRewriteRegistry::Global()->RunRewrite('做一次EagerOpRewriteRegistry::POST_PLACEMENT阶段的op优化
+                        'GetOrCreateKernelAndDevice(op, retvals, num_retvals, &kernel);'TODO 根据op拿到对应kernel
+                    execute.cc的AddOrExecuteNode()
+                        如果Sync同步执行:
+                            把执行所需的kernel,op,graph相关信息等传入新建的ExecuteNode:EagerNode
+                            通过op->Executor()得到EagerExecutor并执行刚新建的EagerNode.'executor.SyncExecute(&node)'
+                            eager_executor中SyncExecute()调用#117'node->Run()', 感觉此时EagerExecutor和EagerNode是一对一的
+                                execute_node.h中Run() -> #126
+                                ->execute.cc 中 EagerKernelExecute()
+                                    'kernel->Run(container, inputs, &outputs'此时真正执行kernel.Run()
+tensorflow\core\common_runtime\eager\execute.cc#1676 EagerKernelExecute() -> #1701'kernel->Run('
+tensorflow\core\common_runtime\eager\kernel_and_device.cc#259 KernelAndDeviceOp::Run() ->  #317 'device_->Compute(kernel_'
+tensorflow\core\common_runtime\gpu\gpu_device.cc#635 compute() -> #672
+tensorflow\core\kernels\matmul_op_impl.h #636 BaseBatchMatMulOp<Eigen::GpuDevice,float,float,float>::Compute() -> #730 'LaunchBatchMatMul<Device, Tout>::Launch('
+tensorflow\core\kernels\matmul_op_impl.h #324 LaunchBatchMatMul<GPUDevice, Scalar>::Launch() -> #439 'stream->ThenBlasGemm('
+tensorflow\stream_executor\stream.h#1199 -> #1211 ThenBlasGemm() -> #1250
+cuda_blas.cc#1765 DoBlasGemm(() -> #1854
+tensorflow\stream_executor\cuda\cuda_blas.cc#548 CUDABlas::DoBlasInternalImpl() 'cublasStatus_t ret = cublas_func(blas_, args...)' 执行传入的函数指针cublas_func
+
+
+各种概念:
+//  EagerOperation::Device(): The device on which the user requested the op
+//    be executed, except if we had to change the device due to resource inputs
+//    or CPU pinning. If the user did not request a device, the op does not
+//    take resources, and we did not pin it to CPU, the device can be nullptr.
+//  KernelAndDevice::Device(): The first time we see an op (combined with
+//    its attributes), we need to create a KernelAndDevice object for it.
+//    If op->Device() is a nullptr, we select a device for the op when
+//    creating the KernelAndDevice. A concrete device will always be selected
+//    here except when `op` is a function to be executed using function library
+//    runtime. In this case, we don't select a device because running
+//    a function with explicitly requested device has different behavior than
+//    running without an explicitly requested device.
+
+// A unit of execution for the EagerExecutor class below. Example subclasses
+// encapsulate execution of a TFE_Op, or copying a TFE_TensorHandle from one
+// device to another.
+class EagerNode {
+
+EagerExecutor:
+// A class for handling async execution (see TFE_ContextSetAsync). 好像Sync的也是他负责了
+// Note that this class is thread-safe.
+
+???
+TensorHandle
+EagerOperation
+EagerExecutor
+EagerNode
+EagerContext
+CustomDeviceOpHandler
+EagerOpRewriteRegistry

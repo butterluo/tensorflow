@@ -1,0 +1,204 @@
+例程:
+"""
+@tf.function
+def fn(x,y,b):
+  x = tf.matmul(x, y)
+  x = x + B
+  return x
+res = fn(...).numpy()
+"""
+假设fn对应的FunctionDef的signature.name为 _inference_fn_13
+
+调'import tensorflow as tf'时触发context.py.Context的创建,用于保存各种环境变量与设置等
+  生成的tensorflow\__init__.py->v2_compat.py 'ops.enable_eager_execution()' -> ops:6204 'context._set_context_locked(context.Context(' 这里创建Context,以后用的一直都是该Context
+  后续在,第一次调Context.ensure_initialized()时, 会在context.py:575 'context_handle = pywrap_tfe.TFE_NewContext(opts)' 在 c 创建c的ctx并赋值给Context._context_handle,后续返回的的ctx._handle就是它,对应context.h中的EagerContext(eager/c_api.cc:115 TFE_NewContext())
+调'res = fn(...).numpy()'时触发
+tensorflow\python\util\traceback_utils.py:150
+tensorflow\python\eager\def_function.py:915 Function.__call__ > :963 _call
+  :768 由于是第一次调__call__,故要_initalize(), ??? 这里768和786会产生两grh,前者用于初始化tf.func中的var,后者就真的是代表了该tf.func的FuncGraph
+    tensorflow\python\framework\func_graph.py
+    :195 创建一个用于初始化var的FuncGrh, FuncGrh.init里调了父类Grh的init
+      tensorflow\python\framework\ops.py:3192 Grh.init()
+        tensorflow\python\framework\c_api_util.py:46 ScopedTFGraph()->pywrap_tf_session的TF_NewGraph()->c grh 1 该grh是代表当前FuncGrh的c grh, 当初始化完成会被回收
+    :207 FuncGrh.init里调了get_default_graph()
+      tensorflow\python\framework\ops.py:6310 > :5821 若已有默认grh(在stack中保存的嵌套scope的嵌套grh或者全局的grh)则返回,若无则创建新的作为全局grh
+        tensorflow\python\framework\ops.py:3192 Grh.init()创建新的全局grh
+          tensorflow\python\framework\c_api_util.py:46 ScopedTFGraph()->pywrap_tf_session的TF_NewGraph()->c grh 2 该grh用于全局默认grh
+  :786
+    tensorflow\python\eager\function.py:2983 调_maybe_define_function()
+      :3292 :3140 调_create_graph_function() 
+        tensorflow\python\framework\func_graph.py#967 func_graph_from_py_func() Returns a `FuncGraph` generated from `python_func`
+        :1045
+          :195 创建一个代表当前tf.func的FuncGrh,这里调了父类Grh的init
+            tensorflow\python\framework\ops.py:3192 Grh.init()
+              tensorflow\python\framework\c_api_util.py:46 ScopedTFGraph()->pywrap_tf_session的TF_NewGraph()->c grh 3 该grh是代表当前FuncGrh的c grh,代表当前tf.func
+        :1076 :1314 :1388 _get_defun_inputs() Maps python function args to graph-construction inputs
+          tensorflow\python\eager\graph_only_ops.py:36 graph_placeholder()
+            tensorflow\python\framework\func_graph.py:695 FuncGrh._create_op_internal()
+              tensorflow\python\framework\ops.py:3784 :2172 Grh._create_op_internal() -> Operation.__init__
+                tensorflow\python\util\traceback_utils.py:150
+                  tensorflow\python\framework\ops.py:1977         //_create_c_op() 从func_graph.py:1388 到这里的路径call了3次, 分别对应tf.func的输入:x,y,b
+        :1085 :133 :89 convert_structure_to_signature() Convert a potentially nested structure to a signature
+          tensorflow\python\framework\ops.py:2690                 //Operation.get_attr() 从func_graph.py:133到这里的路径call了3次, 猜分别对应输入的x,y,b的attr='_user_specified_name'
+        :1161 配置好autograph_handler闭包,并调用autograph把变量var,运算op与依赖dep作为node,edge加到tf grh中, 参考 https://www.tensorflow.org/guide/autograph 
+          def_function:677 > func_graph:1143
+            tensorflow\python\autograph\impl\api.py autograph会基于原始tf.func在/tmp/生成用于创建grh的中间py文件,然后基于该py文件在代表了tf.func的FuncGraph(即上面的c grh 3)上添加op
+            :439 
+              :377 :459
+                traceback_utils:150
+                  tensorflow\python\util\dispatch.py:1082
+                    tensorflow\python\ops\math_ops.py:3714 > 基于math_ops.cc生成的gen_math_ops.py:6036的mat_mul()
+                      tensorflow\python\framework\op_def_library.py:742
+                        func_graph:695 ops:3784 ops:2172 
+                          traceback_utils:150 ops:1977   //调多个c方法创建MatMul,'pywrap_tf_session.TF_NewOperation(graph._c_graph' 调 c 端方法创建op并加入grh
+              traceback_utils:150 math_ops:1406
+                traceback_utils:150 dispatch:1082 math_ops:1756 > 基于math_ops.cc生成的gen_math_ops.py:476的add_v2()
+                  op_def_library:742 func_graph:695 ops:3784 ops:2172 traceback_utils:150 ops:1977   //调多个c方法创建Add,'pywrap_tf_session.TF_NewOperation(graph._c_graph'  调 c 端方法创建op并加入grh
+        :1166 向FuncGrh插入return相关的op
+          tensorflow\python\util\nest.py:914
+            func_graph:1124 
+              tensorflow\python\framework\auto_control_deps.py:250
+                traceback_utils:150 dispatch:1082
+                  tensorflow\python\ops\array_ops.py:287 > 基于array_ops.cc生成的gen_array_ops.py:4078的identity()
+                    op_def_library:742 func_graph:695 ops:3784 ops:2172 traceback_utils:150 ops:1977   //调多个c方法创建Identity,在tf.func return的时候,'pywrap_tf_session.TF_NewOperation(graph._c_graph'  调 c 端方法创建op并加入grh
+        :1202 这里离开了#1053 'with func_graph.as_default(), deps_control_manager'的scope,进而触发了AutomaticControlDependencies.__exit__的调用
+          tensorflow\python\framework\auto_control_deps.py:465 :663 处理FuncGrh中的每个op(含input,var等)对tf.func以外的依赖关系
+            tensorflow\python\framework\auto_control_deps_utils.py:105
+              ops:2690 //重复4次
+        :1204 'if add_control_dependencies'添加控制依赖的边
+        func_graph_from_py_func()结束,为py func创建了对应的FuncGrh
+      :3147 创建ConcreteFunction并传入代表func的FuncGrh,该grh会通过 ConcreteFunction.init>:1495 _DelayedRewriteGradientFunctions.init>:586 _EagerDefinedFunction.init,进而在这三个类实例中保留该grh的引用
+        :377 在_EagerDefinedFunction.init 调'pywrap_tf_session.TF_GraphToFunction_wrapper('进而调 c 把代表tf.func的grh转为struct TF_Function,内含FunctionDef和StackTraceMap,但并没转成func as op (c/c_api_function.cc:205 TF_GraphToFunctionWithControlOutputs())
+        'context.ensure_initialized()' 如果是第一次调该方法的话, 会在context.py:575 'context_handle = pywrap_tfe.TFE_NewContext(opts)' 在 c 创建c的ctx并赋值给Context._context_handle,后续返回的的ctx._handle就是它
+        :408 'context.add_function(fn)' -> context.py:1241 'pywrap_tfe.TFE_ContextAddFunction('调 c 把tf.func这个FuntionDef加入c端EagerContext.registered_functions_和func_lib_def_中(context.cc:887 AddFunctionDef())
+      _maybe_define_function()结束,把py func对应的FuncGrh放入cache,并以函数签名为key
+  _initialize()结束  
+tensorflow\python\eager\def_function.py:969 _call() 方法中
+  'ctx = context.context()'创建上下文
+    tensorflow\python\eager\context.py:2015 _create_context() :381 Context.init 在context中保存了各种配置和环境变量等
+  由于该例中没有var,故走'if self._created_variables:'分支的else部分
+  '_concrete_stateful_fn._call_flat('真正执行tf.func对应的FuncGrh
+    function.py:1782 ConcreteFunction._call_flat()  ConcreteFunction封装了上面生成的FuncGrp
+      'for i, arg in enumerate(args)'把输入的参数转成grh所需的input
+      当'(possible_gradient_type == gradients_util.POSSIBLE_GRADIENT_TYPES_NONE and executing_eagerly):'时,直接执行FuncGrh,也就是本例的情况:
+        调'_inference_function.call('执行. _inference_function在:1500 ConcreteFunction.__init__中创建,其实是封装了传入的FuncGrh的_DelayedRewriteGradientFunctions()中的_inference_function,而这个又是在:584中封装了FuncGrh的_EagerDefinedFunction
+        function.py:506 'outputs = execute.execute_with_cancellation('
+          tensorflow\python\eager\execute.py:54 'pywrap_tfe.TFE_Py_Execute(ctx._handle' 调 c 的方法做实际执行,这里要传入context._handle作为标识
+      function.py:1855 如果不是POSSIBLE_GRADIENT_TYPES_NONE的情况会处理forward和backward TODO
+
+
+ops:2010的_create_c_op()很重要,每个tensor和op都会调用
+
+TODO:
+grh的剪枝优化在哪里?
+分布式实现
+tensor的实现
+XLA在py和c中在哪里判断分支逻辑执行
+
+
+=====================上面是python,下面是C=====================
+
+
+tensorflow\python\framework\c_api_util.py#46 'self.graph = c_api.TF_NewGraph()'
+  TF_NewGraph tensorflow\python\client\tf_session_wrapper.cc#563
+    TF_NewGraph() tensorflow\c\c_api.cc#1622 -> #1612
+      Graph() tensorflow\core\graph\graph.cc#455
+        AddNode() #471/476 -> #555
+        AddControlEdge() #480 -> #706
+          'AddEdge(source, kControlSlot, dest, kControlSlot)' #732 -> #638
+            'dest->RunForwardTypeInference()' #677 -> 186
+
+
+execute.py:54 'pywrap_tfe.TFE_Py_Execute(ctx._handle' 执行特定的FunctionDef
+TFE_Py_Execute() tensorflow\python\eager\pywrap_tfe_src.cc:849 :858 TFE_Py_ExecuteCancelable()
+  :91 GetOp() 查找名字 _inference_fn_13 对应的FuncDef对应的op
+    在GetOp中,若该thread尚无EagerOperation则CreateOperation(在core/comm_rt/eager/core.cc:161 new了一个空EagerOperation而已)
+      调EagerOperation::Reset(),在里面'OpDefForOp(op, &op_def_)'通过名字获取OpDef
+        core/comm_rt/eager/attr_builder.cc#57 OpDefForOp()
+          'OpRegistry::Global()->LookUp('获得Op名字对应的OpRegistrationData及其OpDef
+           (第一次调OpRegistry::Global()->Lookup()时会把deferred_中的OpRegistrationDataFactory通过OpRegistry::MustCallDeferred()->RegisterAlreadyLocked()用factory创建出OpRegistrationData并初始化到registry_中,对应的key是op_def.name())
+  由于_inference_fn_13并不是一个正常的op,所以在op注册器中是找不到的,会返回一个名字为 _inference_fn_13 的空EagerOp
+  'TFE_OpAddInput(op, inputs->at(i), out_status)'为空的_inference_fn_13 EagerOp 加入Input,这里有三个分别是x,y,b
+  'SetOpAttrs(ctx, op, attrs, 0, out_status)' 设置op的attr, 由于_inference_fn_13并不是一个正常的op,所以在op注册器中是找不到, 因此会认为它是一个func op而在eager/attr_builder.cc:92中'GetDefaultFunctionAttrTypeMap()'获取func的默认attr
+  'TFE_Execute(op, outputs->data(), &num_outputs, out_status)' -> tensorflow\c\eager\c_api.cc:872
+->c/eager/c_api.cc.TFE_execute()
+    'unwrapped_op->GetContext()->GetCustomDeviceOpHandler().Execute('
+        c/eager/immediate_execution_operation->core/comm_rt/eager/eager_operation.h 中EagerOperation.GetContext()得到ImmediateExecutionContext
+        c/eager/immediate_execution_context->core/comm_rt/context中EagerContext.GetCustomDeviceOpHandler()得到CustomDeviceOpHandler
+        core/comm_rt/custom_device_op_handler.cc:91中CustomDeviceOpHandler.Execute()中'return op->Execute('
+            擦,EagerOperation::Execute()竟然在core/comm_rt/core.cc:175中.
+            (这里做一些将in&out转成TensorHandler并与计算所需device关联的工作后,调用EagerExecute())
+                core/comm_rt/execute.cc:1633中EagerExecute()在这里分sync,async,remote等分支处理,h中有详细说明
+                    'EagerOpRewriteRegistry::Global()->RunRewrite('提供了一种在不同阶段对op进行优化的机制,优化用的Rewriter要提前register.这里优化后的是out_op,在eager_op_rewrite_registry.cc:44
+                    'EagerOpRewriteRegistry::PRE_EXECUTION, op, &out_op)'这里优化的phase是PRE_EXECUTION. 由于目前EagerOp还是空的_inference_fn_13,也不是正常的op,自然没有什么需要rewrite的.
+                Local执行:
+                    execute.cc的EagerLocalExecute()同样的,在h中有说明, tensorflow\core\common_runtime\eager\execute.cc:1244
+                        'auto& executor = op->Executor()' EagerOp中的EagerExecutor竟然非空???咋来的?在创建EagerCtx时传进来的default_executor?
+                        'EagerOpRewriteRegistry::Global()->RunRewrite('做一次EagerOpRewriteRegistry::POST_PLACEMENT阶段的op优化
+                        'GetOrCreateKernelAndDevice(op, retvals, num_retvals, &kernel);'TODO 根据op拿到对应kernel
+                    execute.cc的AddOrExecuteNode()
+                        如果Sync同步执行:
+                            把执行所需的kernel,op,graph相关信息等传入新建的ExecuteNode:EagerNode
+                            通过op->Executor()得到EagerExecutor并执行刚新建的EagerNode.'executor.SyncExecute(&node)'
+                            eager_executor中SyncExecute()调用#117'node->Run()', 感觉此时EagerExecutor和EagerNode是一对一的
+                                execute_node.h中Run() -> #126
+                                ->execute.cc 中 EagerKernelExecute()
+                                    'kernel->Run(container, inputs, &outputs'此时真正执行kernel.Run()                    
+                      
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
