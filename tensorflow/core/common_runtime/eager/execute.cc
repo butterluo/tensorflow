@@ -963,7 +963,7 @@ Status GetOrCreateKernelAndDevice(
       } else {
         run_function_with_flr = true;
       }
-      GetFuncAttr(op, ctx, kOutputsOnOpDevice, &function_outputs_on_op_device)
+      GetFuncAttr(op, ctx, kOutputsOnOpDevice, &function_outputs_on_op_device)  //BTBT ??? function_outputs_on_op_device是干啥的?
           .IgnoreError();
     }
 
@@ -1044,7 +1044,7 @@ Status GetOrCreateKernelAndDevice(
           "Unable to find a FunctionLibraryRuntime corresponding to device ",
           device->name());
     }
-    auto runner = (flr != nullptr && flr->runner() != nullptr) ? flr->runner()
+    auto runner = (flr != nullptr && flr->runner() != nullptr) ? flr->runner() //BTBT 从 FunctionLibraryRuntime 获取 Executor::Args::Runner
                                                                : ctx.runner();
     GraphCollector* graph_collector = nullptr;
     if (ctx.ShouldStoreGraphs()) {

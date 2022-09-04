@@ -135,7 +135,18 @@ TFE_Py_Execute() tensorflow\python\eager\pywrap_tfe_src.cc:849 :858 TFE_Py_Execu
                     execute.cc的EagerLocalExecute()同样的,在h中有说明, tensorflow\core\common_runtime\eager\execute.cc:1244
                         'auto& executor = op->Executor()' EagerOp中的EagerExecutor竟然非空???咋来的?在创建EagerCtx时传进来的default_executor?
                         'EagerOpRewriteRegistry::Global()->RunRewrite('做一次EagerOpRewriteRegistry::POST_PLACEMENT阶段的op优化
-                        'GetOrCreateKernelAndDevice(op, retvals, num_retvals, &kernel);'TODO 根据op拿到对应kernel
+                        'GetOrCreateKernelAndDevice(op, retvals, num_retvals, &kernel);'根据op拿到对应kernel tensorflow/core/common_runtime/eager/execute.cc:850
+                          'for (int i = 0, end = inputs->size(); i < end; i++) {' 由于cache_key是函数签名,所以要组装input成函数签名
+                          'RefCountPtr<KernelAndDevice> kernel = ctx.GetCachedKernel(cache_key)'如果从cache中找不到对应的kernel则需要创建一个
+                          'if (compile_with_xla) {' 若设置了XLA,则设置_XlaMustCompile属性指示后续通过它生成kernel,否则设置runf_function_with_flr指示后续通过flr即FunctionLibraryRuntime生成kernel
+                          'if (run_function_with_flr) {' 该例用flr生成tf.fn的kernel, 也就是 'kernel.reset(new KernelAndDeviceFunc(' 用KernelAndDeviceFunc封装kernel
+                          ' kernel->Init('其实调如下->
+                          KernelAndDeviceFunc::Init() tensorflow/core/common_runtime/eager/execute.cc:1093
+                            KernelAndDeviceFunc::InstantiateFunc() tensorflow/core/common_runtime/eager/kernel_and_device.cc:244
+                              'options.optimize_graph_fn = std::bind(' 产生一个已固定了部分参数的 grappler::OptimizeGraph 作为partial func. ***
+                              'pflr_->Instantiate(' -> 
+                              ProcessFunctionLibraryRuntime::Instantiate() tensorflow/core/common_runtime/process_function_library_runtime.cc:1457
+                                ProcessFunctionLibraryRuntime::InstantiateMultiDevice() tensorflow/core/common_runtime/process_function_library_runtime.cc:755
                     execute.cc的AddOrExecuteNode()
                         如果Sync同步执行:
                             把执行所需的kernel,op,graph相关信息等传入新建的ExecuteNode:EagerNode
@@ -144,6 +155,22 @@ TFE_Py_Execute() tensorflow\python\eager\pywrap_tfe_src.cc:849 :858 TFE_Py_Execu
                                 execute_node.h中Run() -> #126
                                 ->execute.cc 中 EagerKernelExecute()
                                     'kernel->Run(container, inputs, &outputs'此时真正执行kernel.Run()                    
+
+
+
+
+
+重要实体:
+FunctionDef
+OpDef
+Node
+NodeDef
+Graph
+GraphDef
+FunctionLibraryRuntime
+Executor::Args::Runner
+
+
                       
 
 
