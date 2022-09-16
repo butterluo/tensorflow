@@ -1058,7 +1058,7 @@ Status ProcessFunctionLibraryRuntime::InstantiateMultiDevice(
 
       const string& device_type =
           dev_set->FindDeviceByName(target)->device_type();
-      Graph* subgraph = pair.second.get();
+      Graph* subgraph = pair.second.get();//BTBT pair的key是个dev name,val是对应的grh,可见在grh partition阶段是按一个dev一个grh来做partition的
 
       bool ints_on_device =
           (device_type == "TPU" || device_type == "XLA_CPU" ||

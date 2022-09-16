@@ -1,0 +1,41 @@
+
+
+参考:https://www.cnblogs.com/rossiXYZ/p/16103816.html
+
+
+
+'GrpcServer::Init(' tensorflow\core\distributed_runtime\rpc\grpc_server_lib.cc:176
+  'grpc_worker_env_.reset(CreateGrpcWorkerEnv());' CreateGrpcWorkerEnv()tensorflow\core\distributed_runtime\rpc\grpc_worker_cache.cc:154
+    基于环境变量做一些配置.           [CFG]
+    'new GrpcWorkerEnv(num_completion_queues, num_threads)' GrpcWorkerEnv()grpc_worker_cache.cc:129
+      'threads_(num_completion_queues)'初始化vector<GrpcWorkerCacheThread> threads_的时候会构建每个GrpcWorkerCacheThread,进而调用下面
+        GrpcWorkerEnv::GrpcWorkerCacheThread::GrpcWorkerCacheThread() grpc_worker_cache.cc:137
+          这里做了一些对gRPC的CompletionQueue 的设置,让queue中有回来的response时会调用tag的OnCompleted()方法
+          而这个Tag是GrpcClientCQTag:tensorflow\core\distributed_runtime\rpc\grpc_client_cq_tag.h
+          而RPCState就继承GrpcClientCQTag并实现了OnComplete(),且在其中调用了GrpcMaybeParseProto()
+          后面remote worker的IssueRequest用的就是RPCState
+  'WorkerCacheFactory(worker_cache_factory_options, &worker_cache)'->GrpcServer::WorkerCacheFactory()grpc_server_lib.cc:366
+    '*worker_cache = NewGrpcWorkerCacheWithLocalWorker(' NewGrpcWorkerCacheWithLocalWorker()grpc_worker_cache.cc:177
+
+
+
+
+Recv端作为Server时:
+GrpcMaybeParseProto(
+  RPCState::ParseAndCallDone()
+    RPCState::OnComplete()
+      tensorflow\core\distributed_runtime\rpc\grpc_worker_cache.cc:143 结合 tensorflow\core\distributed_runtime\rpc\grpc_client_cq_tag.h
+
+Send端作为Client时:
+...其它同文章
+GrpcWorker::GrpcRecvTensorAsync() tensorflow\core\distributed_runtime\rpc\grpc_worker_service.cc:441
+  rendezvous_done 闭包封装了 do_response 闭包, 而后者里面调用了EncodeTensorToByteBuffer处理得到的val(tensor)
+    'grpc::EncodeTensorToByteBuffer('tensorflow\core\distributed_runtime\rpc\grpc_tensor_coding.cc:137
+      EncodeTensorToByteBuffer() tensorflow\core\distributed_runtime\rpc\grpc_tensor_coding.cc:137
+    'env_->rendezvous_mgr->RecvLocalAsync(' tensorflow\core\distributed_runtime\base_rendezvous_mgr.cc:72
+      'rendez = FindOrCreate(step_id)' 拿到该step对应的rendezvous
+      'done_cb = [rendez, done = std::move(done)]'传入的callback(上面的 rendezvous_done)再被封装成done_cb闭包传给下一行
+      'rendez->RecvLocalAsync('BaseRemoteRendezvous::RecvLocalAsync()base_rendezvous_mgr:353
+        BaseRemoteRendezvous::RecvLocalAsyncInternal()base_rendezvous_mgr:375
+          'local_->RecvAsync('LocalRendezvous::RecvAsync()tensorflow\core\framework\local_rendezvous.cc:183
+          从本地table获取放在里面的,要给到recv方的tensor ???要断点确认

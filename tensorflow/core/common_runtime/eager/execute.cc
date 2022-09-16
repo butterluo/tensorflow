@@ -945,9 +945,9 @@ Status GetOrCreateKernelAndDevice(
     }
   }
 
-  core::RefCountPtr<KernelAndDevice> kernel = ctx.GetCachedKernel(cache_key);
-  AbstractOperationPtr wrapped_op_releaser;
-  if (kernel == nullptr) {
+  core::RefCountPtr<KernelAndDevice> kernel = ctx.GetCachedKernel(cache_key);//BTBT 看看能否从cache中通过key找到对应的kernel(tf.fn的key是函数签名,普通op的key是注册op时的名字与属性kv值以及
+  AbstractOperationPtr wrapped_op_releaser;                                  //BTBT 当前所在device组成,但XLA op的key是啥???)
+  if (kernel == nullptr) {                                                  //BTBT 若从cache中找不到对应kernel则创建一个
     VLOG(2) << "Creating new kernel for " << op->Name() << " on device "
             << DeviceNameOrUnspecified(absl::get<Device*>(op->Device()));
     bool run_function_with_flr = false;
@@ -969,7 +969,7 @@ Status GetOrCreateKernelAndDevice(
 
     VLOG(2) << op->Name() << " function_outputs_on_op_device: "
             << function_outputs_on_op_device;
-    if (device == nullptr) {
+    if (device == nullptr) {                                                  //BTBT 如果该op是第一次访问,device会没确定,则会进入该if块去选择一个device
       // Here in local execute, set preferred device to be on the local task to
       // avoid placing op on a remote device with higher priority.
       const DeviceNameUtils::ParsedName& preferred_device =
@@ -981,7 +981,7 @@ Status GetOrCreateKernelAndDevice(
       // place the wrapped op on a GPU (if one is available) which leads to
       // errors because placer pins the function output nodes to GPU thereby
       // forcing a H2D copy of the dataset variant which is not supported.
-      auto ndef = op->MutableAttrs()->BuildNodeDef();
+      auto ndef = op->MutableAttrs()->BuildNodeDef();                       //BTBT 如果是tf.fn这个op是空壳;如果是普通op,则会有注册时的内容,只是kernel相关的内容没有;如果是XLA op还不知道???
 #ifdef INTEL_MKL
       if (IsMKLEnabled() &&
           absl::StartsWith(op->Name(), mkl_op_registry::kMklOpPrefix)) {
@@ -989,13 +989,13 @@ Status GetOrCreateKernelAndDevice(
       }
 #endif  // INTEL_MKL
 
-      TF_RETURN_IF_ERROR(ctx.SelectDevice(preferred_device, ndef, &device));
+      TF_RETURN_IF_ERROR(ctx.SelectDevice(preferred_device, ndef, &device));//BTBT TODO 选择device. 在eager/context.cc:331
 
       VLOG(1) << "PreferredDevice " << op->Name() << ": " << preferred_device;
       VLOG(1) << "Placer place op [" << op->Name()
               << "] on device: " << device->name();
       VLOG(4) << "Available kernels for " << op->Name() << " are"
-              << KernelsRegisteredForOp(op->Name());
+              << KernelsRegisteredForOp(op->Name());                       //BTBT 这只是从kernel的registry中拿KernelDef并打印信息,并没实例化kernel本身
       op->SetDevice(device);
     } else {
       VLOG(1) << "Device for [" << op->Name()
@@ -1038,13 +1038,13 @@ Status GetOrCreateKernelAndDevice(
     const NodeDef& ndef = op->MutableAttrs()->BuildNodeDef();
 
     FunctionLibraryRuntime* flr =
-        device == nullptr ? nullptr : ctx.func_lib(device);
+        device == nullptr ? nullptr : ctx.func_lib(device);                 //BTBT 从EagCtx中获取flr.该flr是创建EagCtx时创建pflr时创建的(见eager_fn.txt).普通op也有FunctionLibraryRuntime?是干嘛的???
     if (device != nullptr && flr == nullptr) {
       return errors::NotFound(
           "Unable to find a FunctionLibraryRuntime corresponding to device ",
           device->name());
     }
-    auto runner = (flr != nullptr && flr->runner() != nullptr) ? flr->runner() //BTBT 从 FunctionLibraryRuntime 获取 Executor::Args::Runner
+    auto runner = (flr != nullptr && flr->runner() != nullptr) ? flr->runner() //BTBT 从 FunctionLibraryRuntime 获取 Executor::Args::Runner ??? 这是干嘛的?
                                                                : ctx.runner();
     GraphCollector* graph_collector = nullptr;
     if (ctx.ShouldStoreGraphs()) {
@@ -1053,7 +1053,7 @@ Status GetOrCreateKernelAndDevice(
     // Treat the function as multi_device only when we are not compiling
     // it wholly with XLA. When compiling wholly with XLA, flr->CreateKernel
     // will create an XlaLaunchOp kernel to compile and run the function.
-    if (run_function_with_flr) {
+    if (run_function_with_flr) {                                  //BTBT 如果是tf.fn则走if块
       // Multi-device functions don't use the rendezvous from eager context.
       // If we use that rendezvous, multiple concurrent calls to the same
       // function will likely result in collisions. However, this also means
@@ -1072,7 +1072,7 @@ Status GetOrCreateKernelAndDevice(
       ctx.SetReuseRendezvousForFunctions(
           reuse_rendezvous_for_functions_original_value);
       ctx.reuse_rendezvous_for_functions_mu()->unlock();
-      kernel.reset(new KernelAndDeviceFunc(
+      kernel.reset(new KernelAndDeviceFunc(                 //kernel_and_device.h
           flr, ctx.pflr(), std::move(input_dev_ptrs),
           std::move(composite_devices),
           std::move(input_resource_variable_dtypes_and_shapes), runner,
@@ -1081,10 +1081,10 @@ Status GetOrCreateKernelAndDevice(
           allow_control_flow_sync_execution,
           shape_inference_on_tfe_dialect_import, int_args_and_retvals_on_device,
           std::move(rendezvous_creator), get_op_id));
-    } else {
+    } else {                //BTBT 如果是普通op或XLA环境下的tf.fn会走else块,因XLA会把tf.fn编译成XLA op
       VLOG(2) << "Running " << ndef.op() << " using op kernel. "
               << ". Full node_def=" << ndef.DebugString();
-      kernel.reset(new KernelAndDeviceOp(
+      kernel.reset(new KernelAndDeviceOp(//kernel_and_device.h//BTBT 如下'kernel->Init'>KernelAndDeviceOp::Init->'flr_->CreateKernel'->core/com_rt/function.cc.FunctionLibraryRuntimeImpl::CreateKernel->executor.cc.CreateNonCachedKernel->op_kernel.cc.CreateOpKernel从注册了kernel的registry中拿到factory去create kernel
           ctx.GetRendezvous(), ctx.LogMemory(), flr, runner,
           ctx.GetCollectiveExecutorHandle(), ctx.HostCPU()));
     }
@@ -1103,7 +1103,7 @@ Status GetOrCreateKernelAndDevice(
       // programs that build input pipeline graphs in a loop.
       const OpDef* op_def;
       TF_RETURN_IF_ERROR(OpDefForOp(op->Name().data(), &op_def));
-      if (KernelCacheEnabled(*op_def)) {
+      if (KernelCacheEnabled(*op_def)) {                      //BTBT 对于普通op或XLA op,除了dataset op其它都可cache
         ctx.AddKernelToCache(cache_key, kernel.get());
       }
     }

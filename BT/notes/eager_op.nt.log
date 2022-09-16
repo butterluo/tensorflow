@@ -9,7 +9,7 @@ REGISTER_OP宏在#300, 最终会调用#294的REGISTER_OP_IMPL宏
         OpDefBuilderWrapper::operator(op.cc#295)
             通过OpRegistry::Global()生成单例的OpRegistry
             把builder.Finalize封装成闭包作为OpRegistrationDataFactory调用OpRegistry::Register(op.cc#60)
-                把传入的OpRegistrationDataFactory保存在OpRegistry.deferred_中
+                把传入的OpRegistrationDataFactory保存在OpRegistry.deferred_中(defer是推迟的意思)
                     (第一次调OpRegistry::Global()->Lookup()时会把deferred_中的OpRegistrationDataFactory
                         通过OpRegistry::MustCallDeferred()->RegisterAlreadyLocked()用factory创建出OpRegistrationData并初始化到registry_中,对应的key是op_def.name())
 Op对应的Kernel:
@@ -79,8 +79,21 @@ tfe_wrapper.cc
                 Local执行:
                     execute.cc的EagerLocalExecute()同样的,在h中有说明
                         'EagerOpRewriteRegistry::Global()->RunRewrite('做一次EagerOpRewriteRegistry::POST_PLACEMENT阶段的op优化
-                        'GetOrCreateKernelAndDevice(op, retvals, num_retvals, &kernel);'TODO 根据op拿到对应kernel
-                    execute.cc的AddOrExecuteNode()
+                        'GetOrCreateKernelAndDevice(op, retvals, num_retvals, &kernel);根据op和device获取kernel
+                            见BT注释
+                            'kernel = ctx.GetCachedKernel(cache_key)' 从cache中找kernel,普通op的cache_key是是注册op时的名字与可变属性的kv值以及当前op所在的device
+                            若从cache找不到则创建kernel,如果是普通op会创建KernelAndDeviceOp
+                            'kernel->Init('>KernelAndDeviceOp::Init()core\com_rt\eager\kernel_and_device.cc:101
+                                kernel_and_device:113 
+                                FunctionLibraryRuntimeImpl::CreateKernel( /core/com_rt/function.cc:611
+                                    'CreateNonCachedKernel(' tensorflow\core\common_runtime\executor.cc:1390
+                                        'CreateOpKernel(' tensorflow\core\framework\op_kernel.cc:1594
+                                            'FindKernelRegistration(' op_kernel:1288
+                                                'key = Key(node_op, device_type, label)'以这三者为key去注册了kernel的单例registry中找对应kernel在注册时放进去的KernelRegistration
+                                            'OpKernelConstruction context(' 准备创建kernel的参数
+                                            'kernel = registration->factory->Create(&context)'使用找到的KernelRegistration中的factory创建kernel
+                            'ctx.AddKernelToCache(cache_key, kernel.get())'若非dataset op则把kernel添加到cache
+                    'AddOrExecuteNode(std::move(kernel), op, retvals)'execute.cc:1296
                         如果Sync同步执行:
                             把执行所需的kernel,op,graph相关信息等传入新建的ExecuteNode:EagerNode
                             通过op->Executor()得到EagerExecutor并执行刚新建的EagerNode.'executor.SyncExecute(&node)'
@@ -88,14 +101,24 @@ tfe_wrapper.cc
                                 execute_node.h中Run() -> #126
                                 ->execute.cc 中 EagerKernelExecute()
                                     'kernel->Run(container, inputs, &outputs'此时真正执行kernel.Run()
-tensorflow\core\common_runtime\eager\execute.cc#1676 EagerKernelExecute() -> #1701'kernel->Run('
-tensorflow\core\common_runtime\eager\kernel_and_device.cc#259 KernelAndDeviceOp::Run() ->  #317 'device_->Compute(kernel_'
-tensorflow\core\common_runtime\gpu\gpu_device.cc#635 compute() -> #672
-tensorflow\core\kernels\matmul_op_impl.h #636 BaseBatchMatMulOp<Eigen::GpuDevice,float,float,float>::Compute() -> #730 'LaunchBatchMatMul<Device, Tout>::Launch('
-tensorflow\core\kernels\matmul_op_impl.h #324 LaunchBatchMatMul<GPUDevice, Scalar>::Launch() -> #439 'stream->ThenBlasGemm('
-tensorflow\stream_executor\stream.h#1199 -> #1211 ThenBlasGemm() -> #1250
-cuda_blas.cc#1765 DoBlasGemm(() -> #1854
-tensorflow\stream_executor\cuda\cuda_blas.cc#548 CUDABlas::DoBlasInternalImpl() 'cublasStatus_t ret = cublas_func(blas_, args...)' 执行传入的函数指针cublas_func
+                                    core\common_runtime\eager\execute.cc#1676 EagerKernelExecute() -> #1701'kernel->Run('
+                                        core\common_runtime\eager\kernel_and_device.cc#259 KernelAndDeviceOp::Run() ->  #317 'device_->Compute(kernel_'
+                                            core\common_runtime\gpu\gpu_device.cc#635 compute() -> #672
+                                                core\kernels\matmul_op_impl.h #636 BaseBatchMatMulOp<Eigen::GpuDevice,float,float,float>::Compute() -> #730 'LaunchBatchMatMul<Device, Tout>::Launch('
+                                                    core\kernels\matmul_op_impl.h #324 LaunchBatchMatMul<GPUDevice, Scalar>::Launch() -> #439 'stream->ThenBlasGemm('
+                                                        stream_executor\stream.h#1199 -> #1211 ThenBlasGemm() -> #1250
+                                                            cuda_blas.cc#1765 DoBlasGemm(() -> #1854
+                                                                stream_executor\cuda\cuda_blas.cc#548 CUDABlas::DoBlasInternalImpl() 'cublasStatus_t ret = cublas_func(blas_, args...)' 执行传入的函数指针cublas_func
+
+tf的op是py中每出现一次,就会多一个kernel实例
+tf的grad tape会记录每个op的input&output供backward用,一次forward和backward间同op的input/output应该是不释放且内存地址相同的,但暂时不清楚具体实现???
+
+CusOp(tf)
+  bls的一体化+静态图+MultStrm实现
+    更省内存
+  GlbMap通过id获取实体,可做多单进程多实体,Nv和Bd都做不到
+    tf有些OpKernel是无状态的,但通过GlbMap能保存不同trf实体,在mdl执行前加载权重和划分内存,这些功能也更好与py整合
+  tf的grad通过op.registerGradient指定,pt通过实现Function类的forward&backward
 
 
 各种概念:
@@ -126,6 +149,16 @@ TensorHandle
 EagerOperation
 EagerExecutor
 EagerNode
-EagerContext
+EagerContext : ImmediateExecutionContext
+    ContextDevicePlacementPolicy default_device_placement_policy
+    DeviceMgr
+    Rendezvous
+    DistributedFunctionLibraryRuntime cluster_flr
+    CollectiveExecutorMgrInterface collective_executor_mgr_
+    (ProcessFunctionLibraryRuntime pflr)->(FunctionLibraryRuntime func_lib/flr)
+    thread::ThreadPool thread_pool_
+    EagerExecutor default_executor_
+    Env env_
+    
 CustomDeviceOpHandler
 EagerOpRewriteRegistry

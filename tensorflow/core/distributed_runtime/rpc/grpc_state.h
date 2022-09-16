@@ -527,7 +527,7 @@ class StreamingRPCState : public UntypedStreamingRPCState {
     e = &exchanges_.GetFront();
     mu_.unlock();
 
-    e->Complete(Status::OK());
+    e->Complete(Status::OK());                              //BTBT
 
     {
       mutex_lock l(mu_);
@@ -581,7 +581,7 @@ class StreamingRPCState : public UntypedStreamingRPCState {
     ExchangeQueue queue;
     exchanges_.Swap(&queue);
     mu_.unlock();
-    queue.CompleteAll(status);
+    queue.CompleteAll(status);                                     //BTBT
   }
 
   void MaybeIssueRequestWriteLocked() TF_EXCLUSIVE_LOCKS_REQUIRED(mu_) {

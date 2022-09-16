@@ -89,11 +89,7 @@ tensorflow\python\eager\def_function.py:969 _call() 方法中
 
 ops:2010的_create_c_op()很重要,每个tensor和op都会调用
 
-TODO:
-grh的剪枝优化在哪里?
-分布式实现
-tensor的实现
-XLA在py和c中在哪里判断分支逻辑执行
+
 
 
 =====================上面是python,下面是C=====================
@@ -130,23 +126,43 @@ TFE_Py_Execute() tensorflow\python\eager\pywrap_tfe_src.cc:849 :858 TFE_Py_Execu
             (这里做一些将in&out转成TensorHandler并与计算所需device关联的工作后,调用EagerExecute())
                 core/comm_rt/execute.cc:1633中EagerExecute()在这里分sync,async,remote等分支处理,h中有详细说明
                     'EagerOpRewriteRegistry::Global()->RunRewrite('提供了一种在不同阶段对op进行优化的机制,优化用的Rewriter要提前register.这里优化后的是out_op,在eager_op_rewrite_registry.cc:44
-                    'EagerOpRewriteRegistry::PRE_EXECUTION, op, &out_op)'这里优化的phase是PRE_EXECUTION. 由于目前EagerOp还是空的_inference_fn_13,也不是正常的op,自然没有什么需要rewrite的.
+                    'EagerOpRewriteRegistry::PRE_EXECUTION, op, &out_op)'这里优化的phase是PRE_EXECUTION. 由于目前EagerOp还是空的_inference_fn_13,也不是正常的op,自然没有什么需要rewrite的.                   [OpOpt]PRE_EXECUTION
                 Local执行:
                     execute.cc的EagerLocalExecute()同样的,在h中有说明, tensorflow\core\common_runtime\eager\execute.cc:1244
-                        'auto& executor = op->Executor()' EagerOp中的EagerExecutor竟然非空???咋来的?在创建EagerCtx时传进来的default_executor?
-                        'EagerOpRewriteRegistry::Global()->RunRewrite('做一次EagerOpRewriteRegistry::POST_PLACEMENT阶段的op优化
-                        'GetOrCreateKernelAndDevice(op, retvals, num_retvals, &kernel);'根据op拿到对应kernel tensorflow/core/common_runtime/eager/execute.cc:850
-                          'for (int i = 0, end = inputs->size(); i < end; i++) {' 由于cache_key是函数签名,所以要组装input成函数签名
-                          'RefCountPtr<KernelAndDevice> kernel = ctx.GetCachedKernel(cache_key)'如果从cache中找不到对应的kernel则需要创建一个
-                          'if (compile_with_xla) {' 若设置了XLA,则设置_XlaMustCompile属性指示后续通过它生成kernel,否则设置runf_function_with_flr指示后续通过flr即FunctionLibraryRuntime生成kernel
-                          'if (run_function_with_flr) {' 该例用flr生成tf.fn的kernel, 也就是 'kernel.reset(new KernelAndDeviceFunc(' 用KernelAndDeviceFunc封装kernel
-                          ' kernel->Init('其实调如下->
-                          KernelAndDeviceFunc::Init() tensorflow/core/common_runtime/eager/execute.cc:1093
-                            KernelAndDeviceFunc::InstantiateFunc() tensorflow/core/common_runtime/eager/kernel_and_device.cc:244
-                              'options.optimize_graph_fn = std::bind(' 产生一个已固定了部分参数的 grappler::OptimizeGraph 作为partial func. ***
-                              'pflr_->Instantiate(' -> 
-                              ProcessFunctionLibraryRuntime::Instantiate() tensorflow/core/common_runtime/process_function_library_runtime.cc:1457
-                                ProcessFunctionLibraryRuntime::InstantiateMultiDevice() tensorflow/core/common_runtime/process_function_library_runtime.cc:755
+                      'auto& executor = op->Executor()' EagerOp中的EagerExecutor竟然非空???咋来的?在创建EagerCtx时传进来的default_executor?
+                      'EagerOpRewriteRegistry::Global()->RunRewrite('做一次EagerOpRewriteRegistry::POST_PLACEMENT阶段的op优化                                                                           [OpOpt]POST_PLACEMENT
+                      'GetOrCreateKernelAndDevice(op, retvals, num_retvals, &kernel);'根据op拿到对应kernel tensorflow/core/common_runtime/eager/execute.cc:850
+                        'for (int i = 0, end = inputs->size(); i < end; i++) {' 由于cache_key是函数签名,所以要组装input成函数签名
+                        'RefCountPtr<KernelAndDevice> kernel = ctx.GetCachedKernel(cache_key)'如果从cache中找不到对应的kernel则需要创建一个
+                        'if (compile_with_xla) {' 若设置了XLA,则设置_XlaMustCompile属性指示后续通过它生成kernel,否则设置runf_function_with_flr指示后续通过flr即FunctionLibraryRuntime生成kernel
+                        'if (run_function_with_flr) {' 该例用flr生成tf.fn的kernel, 也就是 'kernel.reset(new KernelAndDeviceFunc(' 用KernelAndDeviceFunc封装kernel
+                        ' kernel->Init('其实调如下->
+                        KernelAndDeviceFunc::Init() tensorflow/core/common_runtime/eager/execute.cc:1093
+                          KernelAndDeviceFunc::InstantiateFunc() tensorflow/core/common_runtime/eager/kernel_and_device.cc:244
+                            'options.optimize_graph_fn = std::bind(' 产生一个已固定了部分参数的 grappler::OptimizeGraph 作为partial func. ***
+                            'pflr_->Instantiate(' -> 
+                            ProcessFunctionLibraryRuntime::Instantiate() tensorflow/core/common_runtime/process_function_library_runtime.cc:1457
+                              ProcessFunctionLibraryRuntime::InstantiateMultiDevice() tensorflow/core/common_runtime/process_function_library_runtime.cc:755
+                                'GetGraphAndArgRets(' tensorflow\core\common_runtime\process_function_library_runtime.cc:727
+                                  TODO 实例化FunctionDef,创建对应的FunctionBody和Graph                                            [GRAPH] FuncDef转Grh,之前构建grh前不是做过一次么?为啥到这里又先grh转FuncDef,然后又转回Grh
+                                'lib_def->ReachableDefinitions(graph_def)'  ???
+                                'dev_set = device_set()' device_set_在构造ProcessFunctionLibraryRuntime时调InitializeDeviceAndFlr()进行初始化                [DEVICE]
+                                  除了Placer和PartitionFunctionGraph会使用dev_set做op和dev的对应外,下面的各种GrhOpt的图优化pass都有可能用到dev_set(直接传入或通过options携带)
+                                'SetArgShape('  ???
+                                'PinArgsAndRets('
+                                'FunctionOptimizationPassRegistry::Global().Run('       [GrhOpt]
+                                'GraphOptimizationPassOptions optimization_options'     [GrhOpt]
+                                'OptimizationPassRegistry::PRE_PLACEMENT'               [GrhOpt]
+                                'Placer placer('                                             [DEVICE]
+                                'OptimizationPassRegistry::POST_PLACEMENT'                   [GrhOpt]
+                                'options.optimize_graph_fn(' optimize_graph_fn是在kernel_and_device.cc:203中封装了grappler::OptimizeGraph的partial func,貌似会rewrite grh                   [GrhOpt]
+                                'OptimizationPassRegistry::POST_REWRITE_FOR_EXEC'                   [GrhOpt]
+                                'ReplicatePerReplicaNodesInFunctionGraph(' ???在grh partition前做的一些准备工作?                                             [DEVICE]
+                                'PartitionFunctionGraph(*dev_set, std::move(graph), &subgraphs)' ??? 划分子图,并把子图保存在subgraphs中                      [DEVICE]
+                                'OptimizationPassRegistry::POST_PARTITIONING'                   [GrhOpt]
+                                TODO ...
+                      'AddOrExecuteNode(std::move(kernel), op, retvals)'  eager\execute.cc:1296
+
                     execute.cc的AddOrExecuteNode()
                         如果Sync同步执行:
                             把执行所需的kernel,op,graph相关信息等传入新建的ExecuteNode:EagerNode
@@ -167,17 +183,67 @@ Node
 NodeDef
 Graph
 GraphDef
-FunctionLibraryRuntime
 Executor::Args::Runner
+InitializeDeviceAndFlr()中初始化???
+MultiDeviceFunctionData
+ComponentFunctionData
 
+// Data structure holding information for a single instantiated multi-device
+// function.
+// The fields are filled in during instantiation. Once the object is
+// added to mdevice_data_, all fields are constant.
+struct MultiDeviceFunctionData
 
                       
 
 
+EagerContext
+  如上述,在import tf时通过context.py创建.
+  里面有大量tf运行所需的东西会被初始化
+DistributedFunctionLibraryRuntime 
+ClusterFunctionLibraryRuntime : public DistributedFunctionLibraryRuntime
+EagerClusterFunctionLibraryRuntime : public DistributedFunctionLibraryRuntime
+ProcessFunctionLibraryRuntime
+  上面的DistributedFuncLibRt作为它的parent_,连接dev,grh和func
+  这个pflr第一个是在哪里创建的?怎么好多pass都会自己建一个pflr,特别是xla相关的
+  在创建EagerContext被创建.但在grh opt时有些pass又会创建它,貌似有树状关系???
+FunctionLibraryRuntime
+  和pflr的关系是多对一,有个parent_指向pflr???,和dev是一对一,pflr中有个flr_map_保存dev和flr的关系???在pflr构建时调用的
+  在创建ProcessFunctionLibraryRuntime时被创建.一个device对应一个flr
+  core/comm_rt/function.cc.'flr->GetFunctionLibraryDefinition()'是干嘛的???涉及'EagerContext::AddFunctionDef('
 
 
 
 
+FunctionLibraryDefinition:OpRegistryInterface
+  在创建EagCtx时创建.并通过EagerContext::AddFunctionDef(加入FunctionDef和FunctionDefLibrary
+  // Helper to maintain a map between function names in a given
+  // FunctionDefLibrary and function definitions.
+  // This class is thread-safe.
+  default_registry_:
+  function_defs_:FunctionDefLibrary
+
+FunctionDefLibrary
+  function.proto
+  A library is a set of named functions.
+  FunctionDef
+    // A function can be instantiated when the runtime can bind every attr
+    // with a value. When a GraphDef has a call to a function, it must
+    // have binding for every attr defined in the signature.
+  GradientDef
+    // GradientDef defines the gradient function of a function defined in
+    // a function library.
+  RegisteredGradient
+    // RegisteredGradient stores a gradient function that is registered in the
+    // gradients library and used in the ops of a function in the function library.
+    // Unlike GradientDef, these gradients are identified by op type, and not
+    // directly linked to any function.
+
+TODO:
+grh的剪枝优化在哪里?
+分布式实现
+tensor的实现
+XLA在py和c中在哪里判断分支逻辑执行
 
 
 
