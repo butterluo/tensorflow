@@ -10,7 +10,7 @@ tensorflow\core\common_runtime\eager\execute.cc:#850  GetOrCreateKernelAndDevice
 前面一堆找不到_infer_fn_11 op的处理,然后定位该_infer_fn_11 op应该是xla fn op,需要创建和编译一个
 tensorflow\core\common_runtime\eager\execute.cc:#850  GetOrCreateKernelAndDevice()-> #1093 kernel->Init() -> KernelAndDevice::Init()
 tensorflow\core\common_runtime\eager\kernel_and_device.cc#101 KernelAndDevice::Init() -> 'flr_->CreateKernel(props, &k)' flr_是FunctionLibraryRuntime
-tensorflow\core\common_runtime\function.cc#611 FunctionLibraryRuntimeImpl::CreateKernel() #621 'custom_kernel_creator->CreateKernel(' ??? 怀疑该情况下调的是XlaKernelCreator::CreateKernel() 但没理清调用路径
+tensorflow\core\common_runtime\function.cc:611 FunctionLibraryRuntimeImpl::CreateKernel() #621 'custom_kernel_creator->CreateKernel(' ??? 怀疑该情况下调的是XlaKernelCreator::CreateKernel() 但没理清调用路径
 tensorflow\compiler\jit\xla_kernel_creator.cc:49 CreateXlaKernel()
 tensorflow\compiler\jit\xla_kernel_creator.cc:49 CreateXlaKernel() -> 'XlaOpRegistry::RegisterCompilationKernels()'
 tensorflow\compiler\tf2xla\xla_op_registry.cc:328 XlaOpRegistry::RegisterCompilationKernels()    或有自定义xla op的线索

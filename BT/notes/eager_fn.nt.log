@@ -156,7 +156,7 @@ TFE_Py_Execute() tensorflow\python\eager\pywrap_tfe_src.cc:849 :858 TFE_Py_Execu
                                 'Placer placer('                                             [DEVICE]
                                 'OptimizationPassRegistry::POST_PLACEMENT'                   [GrhOpt]
                                 'options.optimize_graph_fn(' optimize_graph_fn是在kernel_and_device.cc:203中封装了grappler::OptimizeGraph的partial func,貌似会rewrite grh                   [GrhOpt]
-                                'OptimizationPassRegistry::POST_REWRITE_FOR_EXEC'                   [GrhOpt]
+                                'OptimizationPassRegistry::POST_REWRITE_FOR_EXEC'        触发XLA的子图优化            [GrhOpt]  
                                 'ReplicatePerReplicaNodesInFunctionGraph(' ???在grh partition前做的一些准备工作?                                             [DEVICE]
                                 'PartitionFunctionGraph(*dev_set, std::move(graph), &subgraphs)' ??? 划分子图,并把子图保存在subgraphs中                      [DEVICE]
                                 'OptimizationPassRegistry::POST_PARTITIONING'                   [GrhOpt]

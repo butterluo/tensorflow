@@ -58,6 +58,7 @@ c = tf.matmul(a, b)
 tfe_wrapper.cc
     代码'm.def("TFE_Py_FastPathExecute"'和'return tensorflow::PyoOrThrow(TFE_Py_FastPathExecute_C(args.ptr()));'定义了把c函数TFE_Py_FastPathExecute_C暴露成python函数TFE_Py_FastPathExecute
 ->pywrap_tfe_src.cc.TFE_Py_FastPathExecute_C()
+    收集各种callback信息
     'TFE_Op* op = GetOp('获取op_name对应的OpRegistrationData及其OpDef
         在GetOp中,若该thread尚无EagerOperation则CreateOperation(在core/comm_rt/eager/core.cc:161 new了一个空EagerOperation而已)
             调EagerOperation::Reset(),在里面'OpDefForOp(op, &op_def_)'通过名字获取OpDef
@@ -65,6 +66,7 @@ tfe_wrapper.cc
                     'OpRegistry::Global()->LookUp('获得Op名字对应的OpRegistrationData及其OpDef
                     (第一次调OpRegistry::Global()->Lookup()时会把deferred_中的OpRegistrationDataFactory
                         通过OpRegistry::MustCallDeferred()->RegisterAlreadyLocked()用factory创建出OpRegistrationData并初始化到registry_中,对应的key是op_def.name())
+    TODO 这里搞了些啥???
     'TFE_Execute(op, retvals.data(), &num_retvals, status);'就调到了下边的'c/eager/c_api.cc.TFE_execute()'
 ->c/eager/c_api.cc.TFE_execute()
     'unwrapped_op->GetContext()->GetCustomDeviceOpHandler().Execute('
@@ -78,7 +80,6 @@ tfe_wrapper.cc
                     'EagerOpRewriteRegistry::PRE_EXECUTION, op, &out_op)'这里优化的phase是PRE_EXECUTION
                 Local执行:
                     execute.cc的EagerLocalExecute()同样的,在h中有说明
-                        'EagerOpRewriteRegistry::Global()->RunRewrite('做一次EagerOpRewriteRegistry::POST_PLACEMENT阶段的op优化
                         'GetOrCreateKernelAndDevice(op, retvals, num_retvals, &kernel);根据op和device获取kernel
                             见BT注释
                             'kernel = ctx.GetCachedKernel(cache_key)' 从cache中找kernel,普通op的cache_key是是注册op时的名字与可变属性的kv值以及当前op所在的device
@@ -93,6 +94,7 @@ tfe_wrapper.cc
                                             'OpKernelConstruction context(' 准备创建kernel的参数
                                             'kernel = registration->factory->Create(&context)'使用找到的KernelRegistration中的factory创建kernel
                             'ctx.AddKernelToCache(cache_key, kernel.get())'若非dataset op则把kernel添加到cache
+                        'EagerOpRewriteRegistry::Global()->RunRewrite('做一次EagerOpRewriteRegistry::POST_PLACEMENT阶段的op优化
                     'AddOrExecuteNode(std::move(kernel), op, retvals)'execute.cc:1296
                         如果Sync同步执行:
                             把执行所需的kernel,op,graph相关信息等传入新建的ExecuteNode:EagerNode
@@ -110,13 +112,13 @@ tfe_wrapper.cc
                                                             cuda_blas.cc#1765 DoBlasGemm(() -> #1854
                                                                 stream_executor\cuda\cuda_blas.cc#548 CUDABlas::DoBlasInternalImpl() 'cublasStatus_t ret = cublas_func(blas_, args...)' 执行传入的函数指针cublas_func
 
-tf的op是py中每出现一次,就会多一个kernel实例
+tf的op是py中每出现一次,就会多一个kernel实例，每个实例内的状态和数据不共享
 tf的grad tape会记录每个op的input&output供backward用,一次forward和backward间同op的input/output应该是不释放且内存地址相同的,但暂时不清楚具体实现???
 
 CusOp(tf)
   bls的一体化+静态图+MultStrm实现
     更省内存
-  GlbMap通过id获取实体,可做多单进程多实体,Nv和Bd都做不到
+  GlbMap通过id获取实体,可做多单进程多实体,Nv和字节都做不到
     tf有些OpKernel是无状态的,但通过GlbMap能保存不同trf实体,在mdl执行前加载权重和划分内存,这些功能也更好与py整合
   tf的grad通过op.registerGradient指定,pt通过实现Function类的forward&backward
 
