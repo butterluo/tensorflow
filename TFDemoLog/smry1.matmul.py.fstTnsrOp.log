@@ -128,6 +128,7 @@ tensorflow::EagerExecute(tensorflow::EagerOperation*, tensorflow::TensorHandle**
                 .... 好多
                 :602 log: process_function_library_runtime.cc:602] Setting output device to /job:localhost/replica:0/task:0/device:CPU:0 for node {{node output_RetVal}} = _Retval[T=DT_DOUBLE, index=0](_EagerConst)
               ....好多 ???
+              ??? log: /compiler/mlir/mlir_graph_optimization_pass.cc:180] None of the MLIR Optimization Passes are enabled
               log: core/common_runtime/function_utils.cc:78] Graph Before running PRE_PLACEMENT passes #nodes 5 #edges 5
 
         
