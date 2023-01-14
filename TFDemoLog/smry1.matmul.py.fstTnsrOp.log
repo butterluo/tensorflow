@@ -127,7 +127,7 @@ tensorflow::EagerExecute(tensorflow::EagerOperation*, tensorflow::TensorHandle**
                   :508 while .... 没进该循环,因没log
                 .... 好多
                 :602 log: process_function_library_runtime.cc:602] Setting output device to /job:localhost/replica:0/task:0/device:CPU:0 for node {{node output_RetVal}} = _Retval[T=DT_DOUBLE, index=0](_EagerConst)
-              ....好多
+              ....好多 ???
               log: core/common_runtime/function_utils.cc:78] Graph Before running PRE_PLACEMENT passes #nodes 5 #edges 5
 
         
