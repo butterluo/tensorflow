@@ -1,0 +1,133 @@
+
+        
+        
+        
+        
+        
+
+EagerTensor_init  tensorflow/python/eager/pywrap_tensor.cc:498//BTBT 转py传入的参数和Ctx
+tensorflow::ConvertToEagerTensor(TFE_Context*, _object*, tensorflow::DataType, char const*) tensorflow/python/eager/pywrap_tensor.cc:389 //BTBT 从缓存取TensorHandler,若没有则调ConvertToEagerTensorUncached.  ??? TFE_TensorHandleCache的K和V是什么
+tensorflow::ConvertToEagerTensorUncached(TFE_Context*, _object*, tensorflow::DataType, char const*) tensorflow/python/eager/pywrap_tensor.cc:288 
+                                                    //BT张量 
+                                                    创建包含了Tensor的TensorHandle:tensorflow/python/lib/core/py_seq_tensor.cc.PySeqToTFE_TensorHandle>'FloatConverter::Convert(ctx, obj, &state, &handle, &error)'
+                                                      其实就是调EagerCtx中类似CreateFloatScalar()的方法创建Tensor然后把Tensor通过类似CreateLocalHandle()的方法封装到TensorHandle中返回,最终拿到的是可操作Tensor的TensorHandle
+tensorflow::EagerConst(TFE_Context*, TFE_TensorHandle*, char const*, TF_Status*) tensorflow/python/eager/pywrap_tensor.cc:280 
+                                                    //BT算子 
+                                                      创建EagerOperation:tensorflow/c/eager/c_api.cc:629.TFE_NewOp()>'unwrap(ctx)->CreateOperation()'>tensorflow/core/common_runtime/eager/core.cc.EagerContext::CreateOperation()
+                                                      设置operation的相关属性:TFE_OpSetDevice,TFE_OpAddInput,TFE_OpSetAttrType, //BT设备 BT张量                                                      
+TFE_Execute tensorflow/c/eager/c_api.cc:886                                                      
+tensorflow::CustomDeviceOpHandler::Execute(tensorflow::ImmediateExecutionOperation*, tensorflow::ImmediateExecutionTensorHandle**, int*)tensorflow/core/common_runtime/eager/custom_device_op_handler.cc:55
+tensorflow::EagerOperation::Execute(absl::lts_20220623::Span<tensorflow::AbstractTensorHandle*>, int*)tensorflow/core/common_runtime/eager/core.cc:190 //BT设备 尝试获取device,但不确定这里能否拿到???
+tensorflow::EagerExecute(tensorflow::EagerOperation*, tensorflow::TensorHandle**, int*)tensorflow/core/common_runtime/eager/execute.cc:1816 *72分支点*
+  ....EagerLocalExecute() tensorflow/core/common_runtime/eager/execute.cc:1411
+    ....GetOrCreateKernelAndDevice() tensorflow/core/common_runtime/eager/execute.cc
+      ....:1064 SetOpDevice() tensorflow/core/common_runtime/eager/execute.cc:1034//BT设备 // Set the EagerOperation's device prior to extracting the input_device_ptrs// to avoid any redundant H2D/D2H copies.
+        tensorflow::EagerContext::SelectDevice(preferredDevice,nodeDef,output) tensorflow/core/common_runtime/eager/context.cc:355
+                                                      //BT设备 
+                                                        三个设备来源:传入的 preferredDevice;SupportedDeviceTypesForNode()得到的节点支持该op的所有设备;'pflr_device_set->prioritized_devices()'???得到的existingDevices;
+                                                        通过context.cc.SelectBestMatchingDevice()找合适的设备
+                                                        若第一次找不到合适的,则考虑'AllowSoftPlacement()'去找合适的设备
+          tensorflow::SupportedDeviceTypesForNode() tensorflow/core/framework/op_kernel.cc //BT设备 返回该节点上支持该op的设备,按某种优先级排序
+        log: core/common_runtime/eager/execute.cc:1036] PreferredDevice _EagerConst: /job:localhost/replica:0/task:0
+        log: core/common_runtime/eager/execute.cc:1037] Placer place op [_EagerConst] on device: /job:localhost/replica:0/t
+        log: core/common_runtime/eager/execute.cc:1039] Available kernels for _EagerConst are  device='GPU'; T in [DT_BOOL]
+      'ctx.AddDeviceToCache(device_cache_key, device)'
+      // When running in eager_op_as_function mode Send/Recv ops need to be // placed on the same rendezvous to match the behaviour of eager mode. //BT自定函 BT通信 ???何时初始化或确定 eager_op_as_function mode
+      '(ctx.RunEagerOpAsFunction() && !op->is_function()) ||' log: core/common_runtime/eager/context.cc:743] RunEagerOpAsFunction: 1
+      'TF_RETURN_IF_ERROR(ExtractFunctionInputInfo(' > ExtractFunctionInputInfo()
+        log: core/common_runtime/eager/execute.cc:987] _EagerConst:input:0 /job:localhost/replica:0/task:0/device:CPU:0
+        'if (ctx.FindCompositeDeviceFromName(input_device->name(), &composite_device)'>EagerContext::FindCompositeDeviceFromName() log:"NOT_FOUND: Unknown composite device: /job:localhost/replica:0/task:0/device:CPU:0"
+      'GetKernelCacheKey(*op, op->MutableAttrs()->CacheKey(op->DeviceName())'>GetKernelCacheKey() log:ctx.RunEagerOpAsFunction(): 1
+      log: /core/common_runtime/eager/execute.cc:1118] Creating new kernel for _EagerConst on device /job:localhost/replica:0/task:0/device:CPU:0
+      log: /core/common_runtime/eager/execute.cc:1143] _EagerConst function_outputs_on_op_device: 0
+      log: /core/common_runtime/eager/execute.cc:1148] Device for [_EagerConst] already set to: /job:localhost/replica:0/task:0/device:CPU:0
+      :1174 'WrapInCallOp(op, &wrapped_op)'>WrapInCallOp() log: core/common_runtime/eager/execute.cc:858] signature { .... 打印FunctionDef.DebugString()
+        :859 'EagerContext().AddFunctionDef(std::move(fdef))'>core/common_runtime/eager/context.cc:943.EagerContext::AddFunctionDef()
+          :979 'func_lib_def_.AddFunctionDef(fdef, stack_traces)'>tensorflow\core\framework\function.cc:1278.FunctionLibraryDefinition::AddFunctionDef()
+            :1282 'AddFunctionDefHelper(fdef, stack_traces, &added)'>tensorflow\core\framework\function.cc:1285.FunctionLibraryDefinition::AddFunctionDefHelper()
+              'default_registry_->LookUpOpDef(fdef.signature().name(), &op_def)'>tensorflow\core\framework\op.cc:44.OpRegistryInterface::LookUpOpDef()
+                'LookUp(op_type_name, &op_reg_data)'>op.cc:91.OpRegistry::LookUp(const string& op_type_name)
+                  找不到报错
+                  log: tensorflow/core/framework/op.cc:130] All registered Ops
+                  log: Op type not registered => trace:tensorflow::EagerContext::AddFunctionDef
+      'if (run_function_with_flr)'
+        // Treat the function as multi_device only when we are not compiling
+        // it wholly with XLA. When compiling wholly with XLA, flr->CreateKernel
+        // will create an XlaLaunchOp kernel to compile and run the function.
+        // Multi-device functions don't use the rendezvous from eager context.
+        // If we use that rendezvous, multiple concurrent calls to the same
+        // function will likely result in collisions. However, this also means
+        // that we don't support legitimate sending/receiving across function
+        // boundary.
+        log:tensorflow/core/common_runtime/eager/execute.cc:1214: "Running " << ndef.op() << " using multi-device function. "<< "Full node_def=" << ndef.DebugString();
+          ndef.op(): __wrapped____EagerConst_device_/job:localhost/replica:0/task:0/device:CPU:0
+          ndef.DebugString():
+            Full node_def=name: "__wrapped____EagerConst_device_/job:localhost/replica:0/task:0/device:CPU:0"
+            op: "__wrapped____EagerConst_device_/job:localhost/replica:0/task:0/device:CPU:0"
+            input: "dummy_input"
+            attr {
+              key: "T"
+              value {
+                type: DT_DOUBLE
+              }
+            }
+        ....一顿 reuse_rendezvous_for_functions 相关的操作 ???
+        'kernel.reset(new KernelAndDeviceFunc('构造 KernelAndDeviceFunc,貌似只初始化属性,没调其它函数
+      'kernel->Init(ctx.LogDevicePlacement(), ndef, graph_collector))'>tensorflow\core\common_runtime\eager\kernel_and_device.cc:244.KernelAndDeviceFunc::Init()
+        'InstantiateFunc(log_device_placement, ndef, graph_collector)'>kernel_and_device.cc:139.KernelAndDeviceFunc::InstantiateFunc()
+        'pflr_->Instantiate(ndef.op(), AttrSlice(ndef), options, &handle_)'>tensorflow\core\common_runtime\process_function_library_runtime.cc:1509.ProcessFunctionLibraryRuntime::Instantiate()
+          'if (options.is_multi_device_function)'>'InstantiateMultiDevice(function_name, attrs, options, handle)'>process_function_library_runtime.cc:934.ProcessFunctionLibraryRuntime::InstantiateMultiDevice()
+            // Check if this function has already been instantiated.
+            开始创建 mutlDeviceFunc
+            log: process_function_library_runtime.cc:951 << "Instantiating MultiDevice function " << function_name << " on default device " << options.target 
+              function_name: "__wrapped____EagerConst_device_/job:localhost/replica:0/task:0/device:CPU:0"
+              options.target: "/job:localhost/replica:0/task:0/device:CPU:0"
+            log: Requested input devices: [input 0] /job:localhost/replica:0/task:0/device:CPU:0
+            ....
+            'OptimizeFunctionGraph(function_name, attrs, options, dev_set)'>process_function_library_runtime.cc:759.ProcessFunctionLibraryRuntime::OptimizeFunctionGraph()
+              ....
+              'GetGraphAndArgRets('>process_function_library_runtime.cc:722.ProcessFunctionLibraryRuntime::GetGraphAndArgRets()
+                'FunctionDefToBodyHelper(*fdef, attrs, lib_def, &fbody)'>tensorflow\core\common_runtime\function_def_utils.cc:82.定义了一个 get_func_sig 的闭包函数传给:29.FunctionDefToBodyHelper()
+                  'InstantiateFunction(fdef, attrs, get_func_sig, &result)'>tensorflow\core\framework\function.cc:737.InstantiateFunction()
+                    log: 打印func签名和 func body
+                         tensorflow/core/framework/function.cc:742] Instantiate function definition: name=__wrapped____EagerConst_device_/job:localhost/replica:0/task:0/device:CPU:0 #input_args=1 #output_args=1 #control_output=0
+                         tensorflow/core/framework/function.cc:747] || 
+                         tensorflow/core/framework/function.cc:747] || __wrapped____EagerConst_device_/job:localhost/replica:0/task:0/device:CPU:0[T:<Unknown AttrValue type>](input:T) -> (output:T) {
+                         tensorflow/core/framework/function.cc:747] ||   _EagerConst = _EagerConst[T=$T, device=CPU:0](input:0)
+                         tensorflow/core/framework/function.cc:747] ||   return output = _EagerConst:output:0
+                         tensorflow/core/framework/function.cc:747] || }
+                         tensorflow/core/framework/function.cc:747] || 
+                    ....其它操作 ???
+                  'graph = std::make_unique<Graph>(lib_def)'>tensorflow\core\graph\graph.cc:414&386.构造Graph
+                    ....其它操作
+                    'source = AddNode(def, &status)'
+                    'sink = AddNode(def, &status)'
+                    打印 log:  ???
+                      AddNode: no type constructor for _SOURCE
+                      AddNode: no type constructor for _SINK
+                    'AddControlEdge(source, sink)' ???
+                  'ConvertNodeDefsToGraph(opts, result.nodes, graph.get())'>tensorflow\core\common_runtime\graph_constructor.cc:1469.ConvertNodeDefsToGraph()
+                    ....BT形状 相关操作 ???
+                    'GraphConstructor::Construct(opts, node_defs, nullptr, nullptr, g,'>tensorflow\core\common_runtime\graph_constructor.cc:486.GraphConstructor::Construct()
+                      'NodeDefCopyingGraphConstructor c(opts, node_defs, versions, library, g,' //BTBT ???为何不用 NodeDefMovingGraphConstructor,不是性能更好么 //BT性能
+                      'c.TryImport()' graph_constructor.cc:188.TryImport()
+                        'Convert()'
+                          :1250 'MakeNode(std::move(node_def), &node)'
+                            :774 'g_->AddNode(std::move(node_def), &status)'
+                              这三个log是此触发打印的???
+                                AddNode: no type constructor for input
+                                AddNode: no type constructor for _EagerConst
+                                AddNode: no type constructor for output_RetVal
+              ....???
+              :821 'PinArgsAndRets('>tensorflow\core\common_runtime\process_function_library_runtime.cc:461.ProcessFunctionLibraryRuntime::PinArgsAndRets()
+                ....
+                log: core/common_runtime/process_function_library_runtime.cc:483] Trying to determine device for node output_RetVal[T=double]
+                for ....
+                  log: :496] Considering src: _EagerConst src_device: /job:localhost/replica:0/task:0/device:CPU:0 colo group: 
+                  :508 while .... 没进该循环,因没log
+                .... 好多
+                :602 log: process_function_library_runtime.cc:602] Setting output device to /job:localhost/replica:0/task:0/device:CPU:0 for node {{node output_RetVal}} = _Retval[T=DT_DOUBLE, index=0](_EagerConst)
+              ....好多
+              log: core/common_runtime/function_utils.cc:78] Graph Before running PRE_PLACEMENT passes #nodes 5 #edges 5
+
+        
