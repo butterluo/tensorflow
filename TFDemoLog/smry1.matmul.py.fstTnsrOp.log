@@ -20,27 +20,29 @@ tensorflow::CustomDeviceOpHandler::Execute(tensorflow::ImmediateExecutionOperati
 tensorflow::EagerOperation::Execute(absl::lts_20220623::Span<tensorflow::AbstractTensorHandle*>, int*)tensorflow/core/common_runtime/eager/core.cc:190 //BT设备 尝试获取device,但不确定这里能否拿到???
 tensorflow::EagerExecute(tensorflow::EagerOperation*, tensorflow::TensorHandle**, int*)tensorflow/core/common_runtime/eager/execute.cc:1816 *72分支点*
   ....EagerLocalExecute() tensorflow/core/common_runtime/eager/execute.cc:1411
-    ....GetOrCreateKernelAndDevice() tensorflow/core/common_runtime/eager/execute.cc
-      ....:1064 SetOpDevice() tensorflow/core/common_runtime/eager/execute.cc:1034//BT设备 // Set the EagerOperation's device prior to extracting the input_device_ptrs// to avoid any redundant H2D/D2H copies.
-        tensorflow::EagerContext::SelectDevice(preferredDevice,nodeDef,output) tensorflow/core/common_runtime/eager/context.cc:355
-                                                      //BT设备 
-                                                        三个设备来源:传入的 preferredDevice;SupportedDeviceTypesForNode()得到的节点支持该op的所有设备;'pflr_device_set->prioritized_devices()'???得到的existingDevices;
-                                                        通过context.cc.SelectBestMatchingDevice()找合适的设备
-                                                        若第一次找不到合适的,则考虑'AllowSoftPlacement()'去找合适的设备
-          tensorflow::SupportedDeviceTypesForNode() tensorflow/core/framework/op_kernel.cc //BT设备 返回该节点上支持该op的设备,按某种优先级排序
-        log: core/common_runtime/eager/execute.cc:1036] PreferredDevice _EagerConst: /job:localhost/replica:0/task:0
-        log: core/common_runtime/eager/execute.cc:1037] Placer place op [_EagerConst] on device: /job:localhost/replica:0/t
-        log: core/common_runtime/eager/execute.cc:1039] Available kernels for _EagerConst are  device='GPU'; T in [DT_BOOL]
-      'ctx.AddDeviceToCache(device_cache_key, device)'
-      // When running in eager_op_as_function mode Send/Recv ops need to be // placed on the same rendezvous to match the behaviour of eager mode. //BT自定函 BT通信 ???何时初始化或确定 eager_op_as_function mode
-      '(ctx.RunEagerOpAsFunction() && !op->is_function()) ||' log: core/common_runtime/eager/context.cc:743] RunEagerOpAsFunction: 1
-      'TF_RETURN_IF_ERROR(ExtractFunctionInputInfo(' > ExtractFunctionInputInfo()
+    ....GetOrCreateKernelAndDevice() tensorflow/core/common_runtime/eager/execute.cc:1052
+      :1060 'if (device == nullptr && !op->is_function()) {' 进该代码块
+        :1064 SetOpDevice() tensorflow/core/common_runtime/eager/execute.cc:1034//BT设备 // Set the EagerOperation's device prior to extracting the input_device_ptrs// to avoid any redundant H2D/D2H copies.
+          tensorflow::EagerContext::SelectDevice(preferredDevice,nodeDef,output) tensorflow/core/common_runtime/eager/context.cc:355
+                                                        //BT设备 
+                                                          三个设备来源:传入的 preferredDevice;SupportedDeviceTypesForNode()得到的节点支持该op的所有设备;'pflr_device_set->prioritized_devices()'???得到的existingDevices;
+                                                          通过context.cc.SelectBestMatchingDevice()找合适的设备
+                                                          若第一次找不到合适的,则考虑'AllowSoftPlacement()'去找合适的设备
+            tensorflow::SupportedDeviceTypesForNode() tensorflow/core/framework/op_kernel.cc //BT设备 返回该节点上支持该op的设备,按某种优先级排序
+          log: core/common_runtime/eager/execute.cc:1036] PreferredDevice _EagerConst: /job:localhost/replica:0/task:0
+          log: core/common_runtime/eager/execute.cc:1037] Placer place op [_EagerConst] on device: /job:localhost/replica:0/t
+          log: core/common_runtime/eager/execute.cc:1039] Available kernels for _EagerConst are  device='GPU'; T in [DT_BOOL]
+        :1065 'ctx.AddDeviceToCache(device_cache_key, device)'
+      :1074 // When running in eager_op_as_function mode Send/Recv ops need to be // placed on the same rendezvous to match the behaviour of eager mode. //BT自定函 BT通信 ???何时初始化或确定 eager_op_as_function mode
+      :1077 '(ctx.RunEagerOpAsFunction() && !op->is_function()) ||' log: core/common_runtime/eager/context.cc:743] RunEagerOpAsFunction: 1
+      :1090 'TF_RETURN_IF_ERROR(ExtractFunctionInputInfo(' > ExtractFunctionInputInfo()
         log: core/common_runtime/eager/execute.cc:987] _EagerConst:input:0 /job:localhost/replica:0/task:0/device:CPU:0
         'if (ctx.FindCompositeDeviceFromName(input_device->name(), &composite_device)'>EagerContext::FindCompositeDeviceFromName() log:"NOT_FOUND: Unknown composite device: /job:localhost/replica:0/task:0/device:CPU:0"
-      'GetKernelCacheKey(*op, op->MutableAttrs()->CacheKey(op->DeviceName())'>GetKernelCacheKey() log:ctx.RunEagerOpAsFunction(): 1
+      :1097 'GetKernelCacheKey(*op, op->MutableAttrs()->CacheKey(op->DeviceName())'>GetKernelCacheKey() log:ctx.RunEagerOpAsFunction(): 1
       log: /core/common_runtime/eager/execute.cc:1118] Creating new kernel for _EagerConst on device /job:localhost/replica:0/task:0/device:CPU:0
       log: /core/common_runtime/eager/execute.cc:1143] _EagerConst function_outputs_on_op_device: 0
-      log: /core/common_runtime/eager/execute.cc:1148] Device for [_EagerConst] already set to: /job:localhost/replica:0/task:0/device:CPU:0
+      :1145 'if (device == nullptr)' 不成立,因为刚进 GetOrCreateKernelAndDevice() 时就在 :1064 调了 SetOpDevice()去设device
+        所以打印 log: /core/common_runtime/eager/execute.cc:1148] Device for [_EagerConst] already set to: /job:localhost/replica:0/task:0/device:CPU:0
       :1174 'WrapInCallOp(op, &wrapped_op)'>WrapInCallOp() log: core/common_runtime/eager/execute.cc:858] signature { .... 打印FunctionDef.DebugString()
         :859 'EagerContext().AddFunctionDef(std::move(fdef))'>core/common_runtime/eager/context.cc:943.EagerContext::AddFunctionDef()
           :979 'func_lib_def_.AddFunctionDef(fdef, stack_traces)'>tensorflow\core\framework\function.cc:1278.FunctionLibraryDefinition::AddFunctionDef()
@@ -73,10 +75,10 @@ tensorflow::EagerExecute(tensorflow::EagerOperation*, tensorflow::TensorHandle**
             }
         ....一顿 reuse_rendezvous_for_functions 相关的操作 ???
         'kernel.reset(new KernelAndDeviceFunc('构造 KernelAndDeviceFunc,貌似只初始化属性,没调其它函数
-      'kernel->Init(ctx.LogDevicePlacement(), ndef, graph_collector))'>tensorflow\core\common_runtime\eager\kernel_and_device.cc:244.KernelAndDeviceFunc::Init()
+      'kernel->Init(ctx.LogDevicePlacement(), ndef, graph_collector))'>common_runtime\eager\kernel_and_device.cc:244.KernelAndDeviceFunc::Init()
         'InstantiateFunc(log_device_placement, ndef, graph_collector)'>kernel_and_device.cc:139.KernelAndDeviceFunc::InstantiateFunc()
           .... 好多 ???
-          :240 'pflr_->Instantiate(ndef.op(), AttrSlice(ndef), options, &handle_)'>tensorflow\core\common_runtime\process_function_library_runtime.cc:1509.ProcessFunctionLibraryRuntime::Instantiate()
+          :240 'pflr_->Instantiate(ndef.op(), AttrSlice(ndef), options, &handle_)'>common_runtime\process_function_library_runtime.cc:1509.ProcessFunctionLibraryRuntime::Instantiate()
             :934.ProcessFunctionLibraryRuntime::InstantiateMultiDevice()<'if (options.is_multi_device_function)'>'InstantiateMultiDevice(function_name, attrs, options, handle)'>process_function_library_runtime.cc:934.ProcessFunctionLibraryRuntime::InstantiateMultiDevice()
               // Check if this function has already been instantiated.
               开始创建 mutlDeviceFunc
@@ -267,9 +269,20 @@ tensorflow::EagerExecute(tensorflow::EagerOperation*, tensorflow::TensorHandle**
               :1194 '*handle = AddMultiDeviceHandle(std::move(data), function_key)' ???
               log: tensorflow/core/common_runtime/process_function_library_runtime.cc:1195] Instantiated MultiDevice function "__wrapped____EagerConst_device_/job:localhost/replica:0/task:0/device:CPU:0" with handle 1
             .... ??? 处理不是 is_multi_device_function 的情况
-          回到 tensorflow\core\common_runtime\eager\kernel_and_device.cc:241 kernel_and_device.cc:139.KernelAndDeviceFunc::InstantiateFunc()
+          回到 common_runtime\eager\kernel_and_device.cc:241 kernel_and_device.cc:139.KernelAndDeviceFunc::InstantiateFunc()
           'return pflr_->IsCrossProcess(handle_, &is_cross_process_)' ???
-
+        kernel_and_device.cc:249 'return pflr_->GetOutputDevices(handle_, &output_devices_)' ???
+      :1247 对于 'if (op->is_function())' 好像是走else块???
+    :1433 ??? 'status = GetOrCreateKernelAndDevice(op, retvals, num_retvals, &kernel)' 这个GetOrCreateKernelAndDevice有没有被调?
+    :1439 'ValidateInputTypeAndPlacement(&ctx, op, kernel)' >tensorflow\core\common_runtime\eager\execute.cc:208
+      // `op_device_name` the name of the device on which the op will run, if any. // For functions running using function library runtime, the device can be // unspecified.
+      ....
+      log: common_runtime/eager/execute.cc:245] !is_function: 0
+           common_runtime/eager/execute.cc:246] handle->Type(): 0
+      ....
+    ....
+    log: common_runtime/eager/execute.cc:1445] Executing op _EagerConst in device /job:localhost/replica:0/task:0/device:CPU:0
+    :1449 'AddOrExecuteNode(std::move(kernel), op, retvals)' TODO
 
 
         
