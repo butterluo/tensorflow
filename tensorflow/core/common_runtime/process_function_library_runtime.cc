@@ -1070,7 +1070,7 @@ Status ProcessFunctionLibraryRuntime::InstantiateMultiDevice(
   auto num_subgraphs = subgraphs.size();
   gtl::InlinedVector<Status, 4> instantiate_status(num_subgraphs);
   BlockingCounter counter(static_cast<int>(num_subgraphs));
-  auto runner = [this, num_subgraphs](std::function<void()> fn) {
+  auto runner = [this, num_subgraphs](std::function<void()> fn) {//BT性能 这是传入的fn的一个wrapper,用于当subgraph太多时启用线程池
     // NOTE: Only use thread pool to instantiate sub-function when there are
     // more than 8 sub-functions. We want to avoid cost of switching thread when
     // there are only a few sub-functions.
@@ -1083,7 +1083,7 @@ Status ProcessFunctionLibraryRuntime::InstantiateMultiDevice(
 
   // Before instantiating component functions, determine synchronous execution.
   data->enable_sync_execution = false;
-  if (options.allow_small_function_optimizations) {
+  if (options.allow_small_function_optimizations) {//BT性能 BT自动优
     data->enable_sync_execution = true;
     for (const auto& pair : subgraphs) {
       ComponentFunctionData* comp_data = &data->glue_[pair.first];

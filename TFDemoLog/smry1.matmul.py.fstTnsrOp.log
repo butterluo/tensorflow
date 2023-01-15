@@ -210,6 +210,62 @@ tensorflow::EagerExecute(tensorflow::EagerOperation*, tensorflow::TensorHandle**
                   || }
             :1035 'metrics::UpdateFunctionGraphOptimizationTime(optimization_end_time_usecs -' //BT性测
             ....
+            :1073 'auto runner = [this, num_subgraphs](std::function<void()> fn) {' //BT性能 这是传入的fn的一个wrapper,用于当subgraph太多时启用线程池.这个runner会用于下面的处理每一个subgraph
+            ....
+            :1086 'if (options.allow_small_function_optimizations) {' //BT性能 BT自动优
+            :1101 'for (const auto& pair : subgraphs) {' // Instantiate each component function (subgraph).
+              对于每个subgraph的初始化, 将:1105 到:1184 整个代码块作为fn传入上面提到的wrapper: runner 去执行
+                ....
+                :1116 'status->Update(UpdateArgAndRetvalMetadata(' tensorflow/core/common_runtime/partitioning_utils.cc:197.UpdateArgAndRetvalMetadata()
+                  partitioning_utils.cc:197 ....
+                  :208 'for (Node* node : graph->op_nodes()) {' and 'if (node->IsArg()) {' // Find the Arg and Retval nodes, along with their corresponding indices // in the original function.
+                    ....
+                    :213 'if (node->attrs().Find("sub_index", &attr_value).ok()) {' 
+                      log: No attr named 'sub_index' in NodeDef
+                    ....
+                  ...
+                ....
+                :1126 'GraphToFunctionDef(*subgraph, unique_name, control_ret, &shard)' ..... ???
+                :1131 'status->Update(data_lib_def->AddFunctionDef(shard))'>tensorflow/core/framework/function.cc:1278.FunctionLibraryDefinition::AddFunctionDef()
+                  core/framework/function.cc:1282 'AddFunctionDefHelper(fdef, stack_traces, &added)'>:1285.FunctionLibraryDefinition::AddFunctionDefHelper()
+                    如果在 function_defs_ 中有同签名 FunctionDef 存在,则认为该 FunctionDef 已创建,返回ok
+                    :1301 'if (default_registry_->LookUpOpDef(fdef.signature().name(), &op_def).ok())' 如果 default_registry_ 中有同签名 FunctionDef 存在,则认为已有Op注册过,返回 error
+                    如果找不到同签名的 func 或 op,则基于 FunctionDef 新建一个 FunctionDefAndOpRegistration 插入 function_defs_,并返回 ok
+                :1136.'FunctionLibraryRuntime::InstantiateOptions opts' 封装初始化 component function ??? 所需要的参数
+                ....
+                log: tensorflow/core/common_runtime/process_function_library_runtime.cc:1150] Start instantiating component function __wrapped____EagerConst_device_/job:localhost/replica:0/task:0/device:CPU:0_4619141710927497548_0 on device /job:localhost/replica:0/task:0/device:CPU:0
+                    'DebugString(shard)' log :
+                        __wrapped____EagerConst_device_/job:localhost/replica:0/task:0/device:CPU:0_4619141710927497548_0(input:double) -> (output_retval:double) {
+                          _EagerConst = _EagerConst[T=double, _XlaHasReferenceVars=false, device=CPU:0](input)
+                          return output_retval = _EagerConst:output:0
+                        }
+                :1155 'auto done = [this, status, unique_name, comp_data, component_handle,' 初始化 component function 成功后的回调函数
+                  回调函数主要是更新 status 和其它状态,并打印如下log
+                  log: core/common_runtime/process_function_library_runtime.cc:1150] Start instantiating component function __wrapped____EagerConst_device_/job:localhost/replica:0/task:0/device:CPU:0_4619141710927497548_0 on device /job:localhost/replica:0/task:0/device:CPU:0
+                :1175 'if (flr != nullptr) {' 如果 'flr = GetFLR(opts.target)' 非空,
+                  则 // Initialize local function synchronously. > 'Status s = flr->Instantiate(unique_name, attrs, opts, component_handle)' .... ???
+                    是 tensorflow/core/common_runtime/function.cc:745.FunctionLibraryRuntimeImpl::Instantiate() ???
+                    还是 tensorflow/core/common_runtime/function.cc:209.FunctionLibraryRuntimeOverlay::Instantiate() ???
+                    但 FunctionLibraryRuntimeOverlay::Instantiate() 是不是通过 'base_flr_->Instantiate(' 最终还是会调到 FunctionLibraryRuntimeImpl::Instantiate()
+                    tensorflow/core/common_runtime/function.cc:745.FunctionLibraryRuntimeImpl::Instantiate()
+                      :808 'FunctionDefToBody(*fdef, attrs, lib_def, &fbody)'>:677.FunctionLibraryRuntimeImpl::FunctionDefToBody()
+                        tensorflow/core/common_runtime/function_def_utils.cc:29.FunctionDefToBodyHelper()
+                          tensorflow/core/framework/function.cc:737.InstantiateFunction()
+                            log: tensorflow/core/framework/function.cc:742] Instantiate function definition: name=__wrapped____EagerConst_device_/job:localhost/replica:0/task:0/device:CPU:0_4619141710927497548_0 #input_args=1 #output_args=1 #control_output=0
+                                  __wrapped____EagerConst_device_/job:localhost/replica:0/task:0/device:CPU:0_4619141710927497548_0(input:double) -> (output_retval:double) {
+                                    _EagerConst = _EagerConst[T=double, _XlaHasReferenceVars=false, device=CPU:0](input)
+                                    return output_retval = _EagerConst:output:0
+                                  }
+                            ??? log: tensorflow/core/graph/graph.cc:529] AddNode: no type constructor for _SOURCE
+                                AddNode: no type constructor for _SINK
+                                AddNode: no type constructor for input
+                                AddNode: no type constructor for _EagerConst
+                                AddNode: no type constructor for output_retval_RetVal
+                :1182 否则
+                  // Initialize remote function asynchronously. > 'InstantiateRemote(unique_name, attrs, opts, component_handle, done)' .... ???
+            :1194 '*handle = AddMultiDeviceHandle(std::move(data), function_key)' ???
+            log: tensorflow/core/common_runtime/process_function_library_runtime.cc:1195] Instantiated MultiDevice function "__wrapped____EagerConst_device_/job:localhost/replica:0/task:0/device:CPU:0" with handle 1
+
 
 
 
