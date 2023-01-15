@@ -76,7 +76,7 @@ tensorflow::EagerExecute(tensorflow::EagerOperation*, tensorflow::TensorHandle**
       'kernel->Init(ctx.LogDevicePlacement(), ndef, graph_collector))'>tensorflow\core\common_runtime\eager\kernel_and_device.cc:244.KernelAndDeviceFunc::Init()
         'InstantiateFunc(log_device_placement, ndef, graph_collector)'>kernel_and_device.cc:139.KernelAndDeviceFunc::InstantiateFunc()
         'pflr_->Instantiate(ndef.op(), AttrSlice(ndef), options, &handle_)'>tensorflow\core\common_runtime\process_function_library_runtime.cc:1509.ProcessFunctionLibraryRuntime::Instantiate()
-          'if (options.is_multi_device_function)'>'InstantiateMultiDevice(function_name, attrs, options, handle)'>process_function_library_runtime.cc:934.ProcessFunctionLibraryRuntime::InstantiateMultiDevice()
+          :934.ProcessFunctionLibraryRuntime::InstantiateMultiDevice()<'if (options.is_multi_device_function)'>'InstantiateMultiDevice(function_name, attrs, options, handle)'>process_function_library_runtime.cc:934.ProcessFunctionLibraryRuntime::InstantiateMultiDevice()
             // Check if this function has already been instantiated.
             开始创建 mutlDeviceFunc
             log: process_function_library_runtime.cc:951 << "Instantiating MultiDevice function " << function_name << " on default device " << options.target 
@@ -84,7 +84,7 @@ tensorflow::EagerExecute(tensorflow::EagerOperation*, tensorflow::TensorHandle**
               options.target: "/job:localhost/replica:0/task:0/device:CPU:0"
             log: Requested input devices: [input 0] /job:localhost/replica:0/task:0/device:CPU:0
             ....
-            'OptimizeFunctionGraph(function_name, attrs, options, dev_set)'>process_function_library_runtime.cc:759.ProcessFunctionLibraryRuntime::OptimizeFunctionGraph()
+            :970 'OptimizeFunctionGraph(function_name, attrs, options, dev_set)'>process_function_library_runtime.cc:759.ProcessFunctionLibraryRuntime::OptimizeFunctionGraph()
               ....
               'GetGraphAndArgRets('>process_function_library_runtime.cc:722.ProcessFunctionLibraryRuntime::GetGraphAndArgRets()
                 'FunctionDefToBodyHelper(*fdef, attrs, lib_def, &fbody)'>tensorflow\core\common_runtime\function_def_utils.cc:82.定义了一个 get_func_sig 的闭包函数传给:29.FunctionDefToBodyHelper()
@@ -128,7 +128,89 @@ tensorflow::EagerExecute(tensorflow::EagerOperation*, tensorflow::TensorHandle**
                 .... 好多
                 :602 log: process_function_library_runtime.cc:602] Setting output device to /job:localhost/replica:0/task:0/device:CPU:0 for node {{node output_RetVal}} = _Retval[T=DT_DOUBLE, index=0](_EagerConst)
               ....好多 ???
-              ??? log: /compiler/mlir/mlir_graph_optimization_pass.cc:180] None of the MLIR Optimization Passes are enabled
-              log: core/common_runtime/function_utils.cc:78] Graph Before running PRE_PLACEMENT passes #nodes 5 #edges 5
+              :847 'FunctionOptimizationPassRegistry::Global().Run(' 调用tensorflow/core/common_runtime/function_optimization_registry.h:55.FunctionOptimizationPassRegistry 中注册的优化方法
+                //BTOp优 注册机制???
+                调用到 tensorflow/compiler/mlir/mlir_graph_optimization_pass.cc:130.MlirFunctionOptimizationPass::Run()
+                  <该优化方法在tensorflow/compiler/mlir/mlir_graph_optimization_pass_registration.cc:24.'register_mlir_passes(std::make_unique<MlirFunctionOptimizationPass>())'通过注册机制加载到 FunctionOptimizationPassRegistry ??? //BT自动优 BTOp优 注册机制???
+                  ....???
+                  :178 'if (overall_state == MlirOptimizationPassState::Disabled)' log: /compiler/mlir/mlir_graph_optimization_pass.cc:180] None of the MLIR Optimization Passes are enabled
+              ....
+              'GraphOptimizationPassOptions optimization_options'组装优化所需参数
+              :885 'DumpGraph("Before running PRE_PLACEMENT passes", graph.get());' log: core/common_runtime/function_utils.cc:78] Graph Before running PRE_PLACEMENT passes #nodes 5 #edges 5
+              'OptimizationPassRegistry::Global()->RunGrouping(' 'OptimizationPassRegistry::PRE_PLACEMENT, optimization_options)'
+                >RunGrouping() log:tensorflow/core/common_runtime/optimization_registry.cc:54] Starting optimization of a group 0 //BT图优 注册机制 ??? 挑几个pass看看
+                log:tensorflow/core/common_runtime/optimization_registry.cc:87] Finished optimization of a group 0
+                .... 很多log //BT图优 注册机制 ??? 挑几个pass看看
+              'DumpGraph("Before calling Placer", graph.get())' log: tensorflow/core/common_runtime/function_utils.cc:78] Graph Before calling Placer #nodes 5 #edges 6
+                .... //BT调度 placement 及其注册 ???
+              'DumpGraph("Before running POST_PLACEMENT passes", graph.get())'
+              'OptimizationPassRegistry::Global()->RunGrouping(' 'OptimizationPassRegistry::POST_PLACEMENT, optimization_options)'
+                log:tensorflow/core/common_runtime/optimization_registry.cc:54] Starting optimization of a group 1
+                ....类似 'Before running PRE_PLACEMENT passes' 一堆log //BT图优
+              'if (options.optimize_graph_fn)'>'DumpGraph("Before running graph optimization fn"'>'options.optimize_graph_fn(' 由于不是tf.fn所以没走该分支 ....
+              'DumpGraph("Before running POST_REWRITE_FOR_EXEC passes"'
+              'OptimizationPassRegistry::Global()->RunGrouping(' 'OptimizationPassRegistry::POST_REWRITE_FOR_EXEC, optimization_options)' 
+                log:tensorflow/core/common_runtime/optimization_registry.cc:54] Starting optimization of a group 2
+                ....类似 'Before running PRE_PLACEMENT passes' 一堆log //BT图优
+              'return OptimizedFunctionGraphInfo{' tensorflow/core/common_runtime/process_function_library_runtime.h:387.// Function graph related information after optimizations. 封装了:graph,lib_def,node_name_to_control_ret,ret_types,num_return_nodes
+            :981 'ReplicatePerReplicaNodesInFunctionGraph(' >tensorflow/core/common_runtime/replicate_per_replica_nodes.cc:253
+              'composite_device_to_cluster_nodes' // Map from a composite device to a cluster of nodes assigned to the // composite device and the numbers of their out edges to process. 
+              'if (composite_device_to_cluster_nodes.empty())' > log: core/common_runtime/replicate_per_replica_nodes.cc:277] No nodes with composiste device found
+              ....上一行就返回了,后面没执行
+            :993 log:process_function_library_runtime.cc:993] Main function graph to be partitioned:
+              DebugString(graph->ToGraphDefDebug():
+                      (input:double@CPU:0) -> (_EagerConst:double@CPU:0) {
+                        _EagerConst = _EagerConst[T=double, _XlaHasReferenceVars=false, device=CPU:0](input)
+                      }
+            :998.'PartitionFunctionGraph(*dev_set, std::move(graph), &subgraphs))'
+              tensorflow/core/common_runtime/partitioning_utils.cc:115.PartitionFunctionGraph()
+                'PartitionFunctionGraph(device_set, graph.get(), &partitions,'>:37.PartitionFunctionGraph() // A helper to partiton a `graph` given a `device_set` and a `graph`.// `partitions` maps device names to the graphdef assigned to that device.
+                  ....???
+                  :70 'return Partition(partition_options, graph, partitions)'
+                    core/graph/graph_partition.cc:981.Partition()
+                      ....???
+                      log:core/graph/graph_partition.cc:1251] Added send/recv: controls=0, data=0
+                :124 'for (auto& partition : partitions) {'
+                  ....???
+                  'new Graph(graph->flib_def().default_registry()))'>tensorflow\core\graph\graph.cc:414&386.构造Graph
+                    ....其它操作
+                    'source = AddNode(def, &status)'
+                    'sink = AddNode(def, &status)'
+                    打印 log:  ???
+                      AddNode: no type constructor for _SOURCE
+                      AddNode: no type constructor for _SINK
+                    'AddControlEdge(source, sink)' ???
+                  'ConvertGraphDefToGraph(opts, std::move(graph_def), subgraph.get())'>tensorflow\core\common_runtime\graph_constructor.cc:1469.ConvertNodeDefsToGraph()
+                    ....BT形状 相关操作 ???
+                    'GraphConstructor::Construct(opts, node_defs, nullptr, nullptr, g,'>tensorflow\core\common_runtime\graph_constructor.cc:486.GraphConstructor::Construct()
+                      'NodeDefCopyingGraphConstructor c(opts, node_defs, versions, library, g,' //BTBT ???为何不用 NodeDefMovingGraphConstructor,不是性能更好么 //BT性能
+                      'c.TryImport()' graph_constructor.cc:188.TryImport()
+                        'Convert()'
+                          :1250 'MakeNode(std::move(node_def), &node)'
+                            :774 'g_->AddNode(std::move(node_def), &status)'
+                              这三个log是此触发打印的???
+                                AddNode: no type constructor for input
+                                AddNode: no type constructor for _EagerConst
+                                AddNode: no type constructor for output_RetVal
+            :1001 'for (const auto& pair : subgraphs) {' > 'DumpGraph(strings::StrCat("Before running POST_PARTITIONING passes ("'
+              log: Graph Before running POST_PARTITIONING passes (/job:localhost/replica:0/task:0/device:CPU:0) #nodes 5 #edges 5
+                  || 
+                  || (n2:double@CPU:0) -> (n3:double@CPU:0) {
+                  ||   n3 = _EagerConst[T=double, _XlaHasReferenceVars=false, device=CPU:0](n2)
+                  || }
+            :1006 'GraphOptimizationPassOptions optimization_options'
+            :1018 'OptimizationPassRegistry::Global()->RunGrouping(' 'OptimizationPassRegistry::POST_PARTITIONING, optimization_options)'
+              log:tensorflow/core/common_runtime/optimization_registry.cc:54] Starting optimization of a group 3
+              ....类似 'Before running PRE_PLACEMENT passes' 一堆log //BT图优
+            :1021 'for (const auto& pair : subgraphs) {' 打印partition后的每个subgraph
+              log: Graph After all optimization passes (/job:localhost/replica:0/task:0/device:CPU:0) #nodes 5 #edges 5
+                  || 
+                  || (n2:double@CPU:0) -> (n3:double@CPU:0) {
+                  ||   n3 = _EagerConst[T=double, _XlaHasReferenceVars=false, device=CPU:0](n2)
+                  || }
+            :1035 'metrics::UpdateFunctionGraphOptimizationTime(optimization_end_time_usecs -' //BT性测
+            ....
+
+
 
         

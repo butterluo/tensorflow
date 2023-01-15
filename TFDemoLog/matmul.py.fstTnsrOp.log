@@ -4420,83 +4420,6 @@ attr {
           tensorflow::ConvertToEagerTensorUncached(TFE_Context*, _object*, tensorflow::DataType, char const*)
           tensorflow::ConvertToEagerTensor(TFE_Context*, _object*, tensorflow::DataType, char const*)
           EagerTensor_init
-          _PyObject_MakeTpCall
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-          PyObject_Call
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-
-          PyEval_EvalCode
-
-
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-          _PyFunction_Vectorcall
-          _PyEval_EvalFrameDefault
-          _PyFunction_Vectorcall
-          _PyEval_EvalFrameDefault
-
-          PyEval_EvalCode
-
-
-          _PyEval_EvalFrameDefault
-          _PyFunction_Vectorcall
-          _PyEval_EvalFrameDefault
-          _PyFunction_Vectorcall
-
-          Py_RunMain
-          Py_BytesMain
-
-          __libc_start_main
-          _start
   *** End stack trace ***
 
   2023-01-12 09:34:40.799058: W tensorflow/core/util/dump_graph.cc:134] Failed to dump after_group_0_phase_99999_WeakTypeInferencePass_94667551040240 because dump location is not  specified through either TF_DUMP_GRAPH_PREFIX environment variable or function argument.
@@ -4525,83 +4448,6 @@ attr {
           tensorflow::ConvertToEagerTensorUncached(TFE_Context*, _object*, tensorflow::DataType, char const*)
           tensorflow::ConvertToEagerTensor(TFE_Context*, _object*, tensorflow::DataType, char const*)
           EagerTensor_init
-          _PyObject_MakeTpCall
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-          PyObject_Call
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-
-          PyEval_EvalCode
-
-
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-          _PyFunction_Vectorcall
-          _PyEval_EvalFrameDefault
-          _PyFunction_Vectorcall
-          _PyEval_EvalFrameDefault
-
-          PyEval_EvalCode
-
-
-          _PyEval_EvalFrameDefault
-          _PyFunction_Vectorcall
-          _PyEval_EvalFrameDefault
-          _PyFunction_Vectorcall
-
-          Py_RunMain
-          Py_BytesMain
-
-          __libc_start_main
-          _start
   *** End stack trace ***
 
 2023-01-12 09:34:40.909907: I tensorflow/core/common_runtime/optimization_registry.cc:87] Finished optimization of a group 0
@@ -4639,135 +4485,135 @@ attr {
 2023-01-12 09:34:41.029071: I tensorflow/core/common_runtime/function_utils.cc:82] ||   n3 = _EagerConst[T=double, device=CPU:0](n2)
 2023-01-12 09:34:41.029082: I tensorflow/core/common_runtime/function_utils.cc:82] || }
 2023-01-12 09:34:41.029092: I tensorflow/core/common_runtime/function_utils.cc:82] || 
-2023-01-12 09:34:41.029176: W tensorflow/core/util/dump_graph.cc:134] Failed to dump placer_input because dump location is not  specified through either TF_DUMP_GRAPH_PREFIX environment variable or function argument.
-2023-01-12 09:34:41.140685: I tensorflow/tsl/platform/status.cc:176] Generated non-OK status: "INVALID_ARGUMENT: TF_DUMP_GRAPH_PREFIX not specified". *** Begin stack trace ***
+  2023-01-12 09:34:41.029176: W tensorflow/core/util/dump_graph.cc:134] Failed to dump placer_input because dump location is not  specified through either TF_DUMP_GRAPH_PREFIX environment variable or function argument.
+  2023-01-12 09:34:41.140685: I tensorflow/tsl/platform/status.cc:176] Generated non-OK status: "INVALID_ARGUMENT: TF_DUMP_GRAPH_PREFIX not specified". *** Begin stack trace ***
 
-        tsl::Status::Status(tensorflow::error::Code, std::basic_string_view<char, std::char_traits<char> >, tsl::SourceLocation)
-        tsl::Status tsl::errors::InvalidArgument<char const*>(char const*)
-
-
-        tensorflow::DumpGraphDefToFile(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tensorflow::GraphDef const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)
-        tensorflow::DumpGraphToFile(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tensorflow::Graph const&, tensorflow::FunctionLibraryDefinition const*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)
-        tensorflow::Placer::Run()
-        tensorflow::ProcessFunctionLibraryRuntime::OptimizeFunctionGraph(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tensorflow::AttrSlice, tensorflow::FunctionLibraryRuntime::InstantiateOptions const&, std::shared_ptr<tensorflow::DeviceSet> const&)
-        tensorflow::ProcessFunctionLibraryRuntime::InstantiateMultiDevice(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tensorflow::AttrSlice, tensorflow::FunctionLibraryRuntime::InstantiateOptions const&, unsigned long*)
-        tensorflow::ProcessFunctionLibraryRuntime::Instantiate(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tensorflow::AttrSlice, tensorflow::FunctionLibraryRuntime::InstantiateOptions const&, unsigned long*)
-        tensorflow::KernelAndDeviceFunc::InstantiateFunc(bool, tensorflow::NodeDef const&, tensorflow::GraphCollector*)
-        tensorflow::KernelAndDeviceFunc::Init(bool, tensorflow::NodeDef const&, tensorflow::GraphCollector*)
+          tsl::Status::Status(tensorflow::error::Code, std::basic_string_view<char, std::char_traits<char> >, tsl::SourceLocation)
+          tsl::Status tsl::errors::InvalidArgument<char const*>(char const*)
 
 
-        tensorflow::EagerExecute(tensorflow::EagerOperation*, tensorflow::TensorHandle**, int*)
-        tensorflow::EagerOperation::Execute(absl::lts_20220623::Span<tensorflow::AbstractTensorHandle*>, int*)
-        tensorflow::CustomDeviceOpHandler::Execute(tensorflow::ImmediateExecutionOperation*, tensorflow::ImmediateExecutionTensorHandle**, int*)
-        TFE_Execute
-        tensorflow::EagerConst(TFE_Context*, TFE_TensorHandle*, char const*, TF_Status*)
-        tensorflow::ConvertToEagerTensorUncached(TFE_Context*, _object*, tensorflow::DataType, char const*)
-        tensorflow::ConvertToEagerTensor(TFE_Context*, _object*, tensorflow::DataType, char const*)
-        EagerTensor_init
-*** End stack trace ***
+          tensorflow::DumpGraphDefToFile(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tensorflow::GraphDef const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)
+          tensorflow::DumpGraphToFile(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tensorflow::Graph const&, tensorflow::FunctionLibraryDefinition const*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)
+          tensorflow::Placer::Run()
+          tensorflow::ProcessFunctionLibraryRuntime::OptimizeFunctionGraph(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tensorflow::AttrSlice, tensorflow::FunctionLibraryRuntime::InstantiateOptions const&, std::shared_ptr<tensorflow::DeviceSet> const&)
+          tensorflow::ProcessFunctionLibraryRuntime::InstantiateMultiDevice(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tensorflow::AttrSlice, tensorflow::FunctionLibraryRuntime::InstantiateOptions const&, unsigned long*)
+          tensorflow::ProcessFunctionLibraryRuntime::Instantiate(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tensorflow::AttrSlice, tensorflow::FunctionLibraryRuntime::InstantiateOptions const&, unsigned long*)
+          tensorflow::KernelAndDeviceFunc::InstantiateFunc(bool, tensorflow::NodeDef const&, tensorflow::GraphCollector*)
+          tensorflow::KernelAndDeviceFunc::Init(bool, tensorflow::NodeDef const&, tensorflow::GraphCollector*)
 
-2023-01-12 09:34:41.144105: I tensorflow/core/common_runtime/placer.cc:178]     input: requested: '' assigned: '/job:localhost/replica:0/task:0/device:CPU:0'
-2023-01-12 09:34:41.144996: I tensorflow/core/common_runtime/placer.cc:178]     _EagerConst: requested: '/job:localhost/replica:0/task:0/device:CPU:0' assigned: ''
-2023-01-12 09:34:41.145029: I tensorflow/core/common_runtime/placer.cc:178]     output_RetVal: requested: '' assigned: '/job:localhost/replica:0/task:0/device:CPU:0'
-2023-01-12 09:34:41.145945: I tensorflow/core/common_runtime/placer.cc:120] 
-Node:
-name: "input"
-op: "_Arg"
-attr {
-  key: "T"
-  value {
-    type: DT_DOUBLE
+
+          tensorflow::EagerExecute(tensorflow::EagerOperation*, tensorflow::TensorHandle**, int*)
+          tensorflow::EagerOperation::Execute(absl::lts_20220623::Span<tensorflow::AbstractTensorHandle*>, int*)
+          tensorflow::CustomDeviceOpHandler::Execute(tensorflow::ImmediateExecutionOperation*, tensorflow::ImmediateExecutionTensorHandle**, int*)
+          TFE_Execute
+          tensorflow::EagerConst(TFE_Context*, TFE_TensorHandle*, char const*, TF_Status*)
+          tensorflow::ConvertToEagerTensorUncached(TFE_Context*, _object*, tensorflow::DataType, char const*)
+          tensorflow::ConvertToEagerTensor(TFE_Context*, _object*, tensorflow::DataType, char const*)
+          EagerTensor_init
+  *** End stack trace ***
+
+  2023-01-12 09:34:41.144105: I tensorflow/core/common_runtime/placer.cc:178]     input: requested: '' assigned: '/job:localhost/replica:0/task:0/device:CPU:0'
+  2023-01-12 09:34:41.144996: I tensorflow/core/common_runtime/placer.cc:178]     _EagerConst: requested: '/job:localhost/replica:0/task:0/device:CPU:0' assigned: ''
+  2023-01-12 09:34:41.145029: I tensorflow/core/common_runtime/placer.cc:178]     output_RetVal: requested: '' assigned: '/job:localhost/replica:0/task:0/device:CPU:0'
+  2023-01-12 09:34:41.145945: I tensorflow/core/common_runtime/placer.cc:120] 
+  Node:
+  name: "input"
+  op: "_Arg"
+  attr {
+    key: "T"
+    value {
+      type: DT_DOUBLE
+    }
   }
-}
-attr {
-  key: "index"
-  value {
-    i: 0
+  attr {
+    key: "index"
+    value {
+      i: 0
+    }
   }
-}
-placed on: /job:localhost/replica:0/task:0/device:CPU:0
-2023-01-12 09:34:41.146630: I tensorflow/core/common_runtime/placer.cc:120] 
-Node:
-name: "_EagerConst"
-op: "_EagerConst"
-input: "input"
-device: "/job:localhost/replica:0/task:0/device:CPU:0"
-attr {
-  key: "T"
-  value {
-    type: DT_DOUBLE
+  placed on: /job:localhost/replica:0/task:0/device:CPU:0
+  2023-01-12 09:34:41.146630: I tensorflow/core/common_runtime/placer.cc:120] 
+  Node:
+  name: "_EagerConst"
+  op: "_EagerConst"
+  input: "input"
+  device: "/job:localhost/replica:0/task:0/device:CPU:0"
+  attr {
+    key: "T"
+    value {
+      type: DT_DOUBLE
+    }
   }
-}
-placed on: /job:localhost/replica:0/task:0/device:CPU:0
-2023-01-12 09:34:41.146944: I tensorflow/core/common_runtime/placer.cc:120] 
-Node:
-name: "output_RetVal"
-op: "_Retval"
-input: "_EagerConst"
-attr {
-  key: "T"
-  value {
-    type: DT_DOUBLE
+  placed on: /job:localhost/replica:0/task:0/device:CPU:0
+  2023-01-12 09:34:41.146944: I tensorflow/core/common_runtime/placer.cc:120] 
+  Node:
+  name: "output_RetVal"
+  op: "_Retval"
+  input: "_EagerConst"
+  attr {
+    key: "T"
+    value {
+      type: DT_DOUBLE
+    }
   }
-}
-attr {
-  key: "index"
-  value {
-    i: 0
+  attr {
+    key: "index"
+    value {
+      i: 0
+    }
   }
-}
-placed on: /job:localhost/replica:0/task:0/device:CPU:0
-2023-01-12 09:34:41.147106: W tensorflow/core/util/dump_graph.cc:134] Failed to dump placer_output because dump location is not  specified through either TF_DUMP_GRAPH_PREFIX environment variable or function argument.
-2023-01-12 09:34:41.259327: I tensorflow/tsl/platform/status.cc:176] Generated non-OK status: "INVALID_ARGUMENT: TF_DUMP_GRAPH_PREFIX not specified". *** Begin stack trace ***
+  placed on: /job:localhost/replica:0/task:0/device:CPU:0
+  2023-01-12 09:34:41.147106: W tensorflow/core/util/dump_graph.cc:134] Failed to dump placer_output because dump location is not  specified through either TF_DUMP_GRAPH_PREFIX environment variable or function argument.
+  2023-01-12 09:34:41.259327: I tensorflow/tsl/platform/status.cc:176] Generated non-OK status: "INVALID_ARGUMENT: TF_DUMP_GRAPH_PREFIX not specified". *** Begin stack trace ***
 
-        tsl::Status::Status(tensorflow::error::Code, std::basic_string_view<char, std::char_traits<char> >, tsl::SourceLocation)
-        tsl::Status tsl::errors::InvalidArgument<char const*>(char const*)
-
-
-        tensorflow::DumpGraphDefToFile(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tensorflow::GraphDef const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)
-        tensorflow::DumpGraphToFile(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tensorflow::Graph const&, tensorflow::FunctionLibraryDefinition const*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)
-        tensorflow::Placer::Run()
-        tensorflow::ProcessFunctionLibraryRuntime::OptimizeFunctionGraph(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tensorflow::AttrSlice, tensorflow::FunctionLibraryRuntime::InstantiateOptions const&, std::shared_ptr<tensorflow::DeviceSet> const&)
-        tensorflow::ProcessFunctionLibraryRuntime::InstantiateMultiDevice(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tensorflow::AttrSlice, tensorflow::FunctionLibraryRuntime::InstantiateOptions const&, unsigned long*)
-        tensorflow::ProcessFunctionLibraryRuntime::Instantiate(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tensorflow::AttrSlice, tensorflow::FunctionLibraryRuntime::InstantiateOptions const&, unsigned long*)
-        tensorflow::KernelAndDeviceFunc::InstantiateFunc(bool, tensorflow::NodeDef const&, tensorflow::GraphCollector*)
-        tensorflow::KernelAndDeviceFunc::Init(bool, tensorflow::NodeDef const&, tensorflow::GraphCollector*)
+          tsl::Status::Status(tensorflow::error::Code, std::basic_string_view<char, std::char_traits<char> >, tsl::SourceLocation)
+          tsl::Status tsl::errors::InvalidArgument<char const*>(char const*)
 
 
-        tensorflow::EagerExecute(tensorflow::EagerOperation*, tensorflow::TensorHandle**, int*)
-        tensorflow::EagerOperation::Execute(absl::lts_20220623::Span<tensorflow::AbstractTensorHandle*>, int*)
-        tensorflow::CustomDeviceOpHandler::Execute(tensorflow::ImmediateExecutionOperation*, tensorflow::ImmediateExecutionTensorHandle**, int*)
-        TFE_Execute
-        tensorflow::EagerConst(TFE_Context*, TFE_TensorHandle*, char const*, TF_Status*)
-        tensorflow::ConvertToEagerTensorUncached(TFE_Context*, _object*, tensorflow::DataType, char const*)
-        tensorflow::ConvertToEagerTensor(TFE_Context*, _object*, tensorflow::DataType, char const*)
-        EagerTensor_init
-
-*** End stack trace ***
-
-2023-01-12 09:34:41.349374: I tensorflow/tsl/platform/status.cc:176] Generated non-OK status: "INTERNAL: Failed to get the directory for colocation_graph because dump location is not specified through TF_DUMP_GRAPH_PREFIX environment variable". *** Begin stack trace ***
-
-        tsl::Status::Status(tensorflow::error::Code, std::basic_string_view<char, std::char_traits<char> >, tsl::SourceLocation)
-        tsl::Status tsl::errors::Internal<char const*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, char const*>(char const*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, char const*)
+          tensorflow::DumpGraphDefToFile(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tensorflow::GraphDef const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)
+          tensorflow::DumpGraphToFile(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tensorflow::Graph const&, tensorflow::FunctionLibraryDefinition const*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)
+          tensorflow::Placer::Run()
+          tensorflow::ProcessFunctionLibraryRuntime::OptimizeFunctionGraph(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tensorflow::AttrSlice, tensorflow::FunctionLibraryRuntime::InstantiateOptions const&, std::shared_ptr<tensorflow::DeviceSet> const&)
+          tensorflow::ProcessFunctionLibraryRuntime::InstantiateMultiDevice(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tensorflow::AttrSlice, tensorflow::FunctionLibraryRuntime::InstantiateOptions const&, unsigned long*)
+          tensorflow::ProcessFunctionLibraryRuntime::Instantiate(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tensorflow::AttrSlice, tensorflow::FunctionLibraryRuntime::InstantiateOptions const&, unsigned long*)
+          tensorflow::KernelAndDeviceFunc::InstantiateFunc(bool, tensorflow::NodeDef const&, tensorflow::GraphCollector*)
+          tensorflow::KernelAndDeviceFunc::Init(bool, tensorflow::NodeDef const&, tensorflow::GraphCollector*)
 
 
-        tensorflow::Placer::Run()
-        tensorflow::ProcessFunctionLibraryRuntime::OptimizeFunctionGraph(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tensorflow::AttrSlice, tensorflow::FunctionLibraryRuntime::InstantiateOptions const&, std::shared_ptr<tensorflow::DeviceSet> const&)
-        tensorflow::ProcessFunctionLibraryRuntime::InstantiateMultiDevice(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tensorflow::AttrSlice, tensorflow::FunctionLibraryRuntime::InstantiateOptions const&, unsigned long*)
-        tensorflow::ProcessFunctionLibraryRuntime::Instantiate(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tensorflow::AttrSlice, tensorflow::FunctionLibraryRuntime::InstantiateOptions const&, unsigned long*)
-        tensorflow::KernelAndDeviceFunc::InstantiateFunc(bool, tensorflow::NodeDef const&, tensorflow::GraphCollector*)
-        tensorflow::KernelAndDeviceFunc::Init(bool, tensorflow::NodeDef const&, tensorflow::GraphCollector*)
+          tensorflow::EagerExecute(tensorflow::EagerOperation*, tensorflow::TensorHandle**, int*)
+          tensorflow::EagerOperation::Execute(absl::lts_20220623::Span<tensorflow::AbstractTensorHandle*>, int*)
+          tensorflow::CustomDeviceOpHandler::Execute(tensorflow::ImmediateExecutionOperation*, tensorflow::ImmediateExecutionTensorHandle**, int*)
+          TFE_Execute
+          tensorflow::EagerConst(TFE_Context*, TFE_TensorHandle*, char const*, TF_Status*)
+          tensorflow::ConvertToEagerTensorUncached(TFE_Context*, _object*, tensorflow::DataType, char const*)
+          tensorflow::ConvertToEagerTensor(TFE_Context*, _object*, tensorflow::DataType, char const*)
+          EagerTensor_init
+
+  *** End stack trace ***
+
+  2023-01-12 09:34:41.349374: I tensorflow/tsl/platform/status.cc:176] Generated non-OK status: "INTERNAL: Failed to get the directory for colocation_graph because dump location is not specified through TF_DUMP_GRAPH_PREFIX environment variable". *** Begin stack trace ***
+
+          tsl::Status::Status(tensorflow::error::Code, std::basic_string_view<char, std::char_traits<char> >, tsl::SourceLocation)
+          tsl::Status tsl::errors::Internal<char const*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, char const*>(char const*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, char const*)
 
 
-        tensorflow::EagerExecute(tensorflow::EagerOperation*, tensorflow::TensorHandle**, int*)
-        tensorflow::EagerOperation::Execute(absl::lts_20220623::Span<tensorflow::AbstractTensorHandle*>, int*)
-        tensorflow::CustomDeviceOpHandler::Execute(tensorflow::ImmediateExecutionOperation*, tensorflow::ImmediateExecutionTensorHandle**, int*)
-        TFE_Execute
-        tensorflow::EagerConst(TFE_Context*, TFE_TensorHandle*, char const*, TF_Status*)
-        tensorflow::ConvertToEagerTensorUncached(TFE_Context*, _object*, tensorflow::DataType, char const*)
-        tensorflow::ConvertToEagerTensor(TFE_Context*, _object*, tensorflow::DataType, char const*)
-        EagerTensor_init
-*** End stack trace ***
+          tensorflow::Placer::Run()
+          tensorflow::ProcessFunctionLibraryRuntime::OptimizeFunctionGraph(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tensorflow::AttrSlice, tensorflow::FunctionLibraryRuntime::InstantiateOptions const&, std::shared_ptr<tensorflow::DeviceSet> const&)
+          tensorflow::ProcessFunctionLibraryRuntime::InstantiateMultiDevice(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tensorflow::AttrSlice, tensorflow::FunctionLibraryRuntime::InstantiateOptions const&, unsigned long*)
+          tensorflow::ProcessFunctionLibraryRuntime::Instantiate(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tensorflow::AttrSlice, tensorflow::FunctionLibraryRuntime::InstantiateOptions const&, unsigned long*)
+          tensorflow::KernelAndDeviceFunc::InstantiateFunc(bool, tensorflow::NodeDef const&, tensorflow::GraphCollector*)
+          tensorflow::KernelAndDeviceFunc::Init(bool, tensorflow::NodeDef const&, tensorflow::GraphCollector*)
+
+
+          tensorflow::EagerExecute(tensorflow::EagerOperation*, tensorflow::TensorHandle**, int*)
+          tensorflow::EagerOperation::Execute(absl::lts_20220623::Span<tensorflow::AbstractTensorHandle*>, int*)
+          tensorflow::CustomDeviceOpHandler::Execute(tensorflow::ImmediateExecutionOperation*, tensorflow::ImmediateExecutionTensorHandle**, int*)
+          TFE_Execute
+          tensorflow::EagerConst(TFE_Context*, TFE_TensorHandle*, char const*, TF_Status*)
+          tensorflow::ConvertToEagerTensorUncached(TFE_Context*, _object*, tensorflow::DataType, char const*)
+          tensorflow::ConvertToEagerTensor(TFE_Context*, _object*, tensorflow::DataType, char const*)
+          EagerTensor_init
+  *** End stack trace ***
 
 2023-01-12 09:34:41.349517: E tensorflow/core/common_runtime/placer.cc:93] Failed to write final colocation graph to file  with INTERNAL: Failed to get the directory for colocation_graph because dump location is not specified through TF_DUMP_GRAPH_PREFIX environment variable
 2023-01-12 09:34:41.349717: I tensorflow/core/common_runtime/function_utils.cc:78] Graph Before running POST_PLACEMENT passes #nodes 5 #edges 6
@@ -7536,83 +7382,6 @@ placed on: /job:localhost/replica:0/task:0/device:CPU:0
           tensorflow::ConvertToEagerTensorUncached(TFE_Context*, _object*, tensorflow::DataType, char const*)
           tensorflow::ConvertToEagerTensor(TFE_Context*, _object*, tensorflow::DataType, char const*)
           EagerTensor_init
-          _PyObject_MakeTpCall
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-          PyObject_Call
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-
-          PyEval_EvalCode
-
-
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-          _PyFunction_Vectorcall
-          _PyEval_EvalFrameDefault
-          _PyFunction_Vectorcall
-          _PyEval_EvalFrameDefault
-
-          PyEval_EvalCode
-
-
-          _PyEval_EvalFrameDefault
-          _PyFunction_Vectorcall
-          _PyEval_EvalFrameDefault
-          _PyFunction_Vectorcall
-
-          Py_RunMain
-          Py_BytesMain
-
-          __libc_start_main
-          _start
   *** End stack trace ***
 
   2023-01-12 09:34:44.170667: I tensorflow/core/common_runtime/optimization_registry.cc:66] Running optimization phase 1
@@ -7643,83 +7412,6 @@ placed on: /job:localhost/replica:0/task:0/device:CPU:0
           tensorflow::ConvertToEagerTensorUncached(TFE_Context*, _object*, tensorflow::DataType, char const*)
           tensorflow::ConvertToEagerTensor(TFE_Context*, _object*, tensorflow::DataType, char const*)
           EagerTensor_init
-          _PyObject_MakeTpCall
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-          PyObject_Call
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-
-          PyEval_EvalCode
-
-
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-
-          _PyFunction_Vectorcall
-
-          _PyEval_EvalFrameDefault
-          _PyFunction_Vectorcall
-          _PyEval_EvalFrameDefault
-          _PyFunction_Vectorcall
-          _PyEval_EvalFrameDefault
-
-          PyEval_EvalCode
-
-
-          _PyEval_EvalFrameDefault
-          _PyFunction_Vectorcall
-          _PyEval_EvalFrameDefault
-          _PyFunction_Vectorcall
-
-          Py_RunMain
-          Py_BytesMain
-
-          __libc_start_main
-          _start
   *** End stack trace ***
 
 2023-01-12 09:34:44.267829: I tensorflow/core/common_runtime/optimization_registry.cc:87] Finished optimization of a group 3
@@ -7807,83 +7499,6 @@ placed on: /job:localhost/replica:0/task:0/device:CPU:0
         tensorflow::ConvertToEagerTensorUncached(TFE_Context*, _object*, tensorflow::DataType, char const*)
         tensorflow::ConvertToEagerTensor(TFE_Context*, _object*, tensorflow::DataType, char const*)
         EagerTensor_init
-        _PyObject_MakeTpCall
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-        PyObject_Call
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-
-
-        PyEval_EvalCode
-
-
-
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-        _PyFunction_Vectorcall
-        _PyEval_EvalFrameDefault
-        _PyFunction_Vectorcall
-        _PyEval_EvalFrameDefault
-
-        PyEval_EvalCode
-
-
-        _PyEval_EvalFrameDefault
-        _PyFunction_Vectorcall
-        _PyEval_EvalFrameDefault
-        _PyFunction_Vectorcall
-
-        Py_RunMain
-        Py_BytesMain
-
-        __libc_start_main
-        _start
 *** End stack trace ***
 
 2023-01-12 09:34:44.667247: I tensorflow/tsl/platform/status.cc:176] Generated non-OK status: "NOT_FOUND: No attr named 'sub_index' in NodeDef:
@@ -7915,83 +7530,6 @@ placed on: /job:localhost/replica:0/task:0/device:CPU:0
         tensorflow::ConvertToEagerTensorUncached(TFE_Context*, _object*, tensorflow::DataType, char const*)
         tensorflow::ConvertToEagerTensor(TFE_Context*, _object*, tensorflow::DataType, char const*)
         EagerTensor_init
-        _PyObject_MakeTpCall
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-        PyObject_Call
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-
-
-        PyEval_EvalCode
-
-
-
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-        _PyFunction_Vectorcall
-        _PyEval_EvalFrameDefault
-        _PyFunction_Vectorcall
-        _PyEval_EvalFrameDefault
-
-        PyEval_EvalCode
-
-
-        _PyEval_EvalFrameDefault
-        _PyFunction_Vectorcall
-        _PyEval_EvalFrameDefault
-        _PyFunction_Vectorcall
-
-        Py_RunMain
-        Py_BytesMain
-
-        __libc_start_main
-        _start
 *** End stack trace ***
 
 2023-01-12 09:34:44.767717: I tensorflow/tsl/platform/status.cc:176] Generated non-OK status: "NOT_FOUND: Op type not registered '__wrapped____EagerConst_device_/job:localhost/replica:0/task:0/device:CPU:0_4619141710927497548_0' in binary running on docker-desktop. Make sure the Op and Kernel are registered in the binary running in this process. Note that if you are loading a saved graph which used ops from tf.contrib, accessing (e.g.) `tf.contrib.resampler` should be done before importing the graph, as contrib ops are lazily registered when the module is first accessed.". *** Begin stack trace ***
@@ -8023,83 +7561,6 @@ placed on: /job:localhost/replica:0/task:0/device:CPU:0
         tensorflow::ConvertToEagerTensorUncached(TFE_Context*, _object*, tensorflow::DataType, char const*)
         tensorflow::ConvertToEagerTensor(TFE_Context*, _object*, tensorflow::DataType, char const*)
         EagerTensor_init
-        _PyObject_MakeTpCall
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-        PyObject_Call
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-
-
-        PyEval_EvalCode
-
-
-
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-
-        _PyFunction_Vectorcall
-
-        _PyEval_EvalFrameDefault
-        _PyFunction_Vectorcall
-        _PyEval_EvalFrameDefault
-        _PyFunction_Vectorcall
-        _PyEval_EvalFrameDefault
-
-        PyEval_EvalCode
-
-
-        _PyEval_EvalFrameDefault
-        _PyFunction_Vectorcall
-        _PyEval_EvalFrameDefault
-        _PyFunction_Vectorcall
-
-        Py_RunMain
-        Py_BytesMain
-
-        __libc_start_main
-        _start
 *** End stack trace ***
 
 2023-01-12 09:34:44.768183: I tensorflow/core/framework/op.cc:80] NOT_FOUND: Op type not registered '__wrapped____EagerConst_device_/job:localhost/replica:0/task:0/device:CPU:0_4619141710927497548_0' in binary running on docker-desktop. Make sure the Op and Kernel are registered in the binary running in this process. Note that if you are loading a saved graph which used ops from tf.contrib, accessing (e.g.) `tf.contrib.resampler` should be done before importing the graph, as contrib ops are lazily registered when the module is first accessed.
