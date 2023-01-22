@@ -86,15 +86,16 @@ tensorflow::ConvertToEagerTensorUncached(TFE_Context*, _object*, tensorflow::Dat
       log: /core/common_runtime/eager/execute.cc:1118] Creating new kernel for _EagerConst on device /job:localhost/replica:0/task:0/device:CPU:0
       'if (op->is_function()) {'该代码块处理@tf.fn的场景,此时不走该代码块 ???不确定
       log: /core/common_runtime/eager/execute.cc:1143] _EagerConst function_outputs_on_op_device: 0
-      log: /core/common_runtime/eager/execute.cc:1148] Device for [_EagerConst] already set to: /job:localhost/replica:0/task:0/device:CPU:0
+      :1145 'if (device == nullptr)' 不成立,因为刚进 GetOrCreateKernelAndDevice() 时就在 :1064 调了 SetOpDevice()去设device
+         所以打印 log: /core/common_runtime/eager/execute.cc:1148] Device for [_EagerConst] already set to: /job:localhost/replica:0/task:0/device:CPU:0
       :1171 'if (ctx.RunEagerOpAsFunction() && !op->is_function()) {' 满足条件并进入该代码块
         该代码块主要是讲不是func却又要按func的玩法运行的op,封装成func op.....??? 这里的func可能就是@tf.fn的意思
       :1174 'WrapInCallOp(op, &wrapped_op)'>WrapInCallOp() core/common_runtime/eager/execute.cc:803 负责封装op为func op. 
         'VerifyWrappableInCallOp(opdef, op)' // Raise an error for ops which don't support wrapping yet. //BT算子 看实现的确'list inputs/outputs'已支持,只是排查pravate attr这种不支持的情况
         'BuildWrappedOpName(op, opdef, op_attrs, &fname)' //BT算子 构建wrappable CallOp名字的规则没搞懂??? variadic input/output是指维度是可变形状的出入参的意思?比如a[?,3]之类的?
-        'if (!op->EagerContext().GetFunctionDef(fname)) {' 先通过 'BuildWrappedOpName(op, opdef, op_attrs, &fname)' 构造func name,如果该func name在ctx的缓存中无法找到,则走该代码块构建一个对应的FunctionDef //BT算子 
-        
-        log: core/common_runtime/eager/execute.cc:858]   .... 打印FunctionDef.DebugString()
+        :822 'if (!op->EagerContext().GetFunctionDef(fname)) {' 先通过 'BuildWrappedOpName(op, opdef, op_attrs, &fname)' 构造func name,如果该func name在ctx的缓存中无法找到,则走该代码块构建一个对应的FunctionDef //BT算子 
+        'BuildWrappedOpSignature(op, opdef, fname, *fdef.mutable_signature()))' 和 BuildWrappedOpName() 类似,没看懂注释 ??? //BT算子 BT张量
+        :858 log: core/common_runtime/eager/execute.cc:858]   .... 打印FunctionDef.DebugString()
                 signature {  
                   name: "__wrapped____EagerConst_device_/job:localhost/replica:0/task:0/device:CPU:0"
                   input_arg {
@@ -158,19 +159,131 @@ tensorflow::ConvertToEagerTensorUncached(TFE_Context*, _object*, tensorflow::Dat
             }
         ....一顿 reuse_rendezvous_for_functions 相关的操作 ???
         'kernel.reset(new KernelAndDeviceFunc('构造 KernelAndDeviceFunc,貌似只初始化属性,没调其它函数
-      'kernel->Init(ctx.LogDevicePlacement(), ndef, graph_collector))'>tensorflow\core\common_runtime\eager\kernel_and_device.cc:244.KernelAndDeviceFunc::Init()
+      'kernel->Init(ctx.LogDevicePlacement(), ndef, graph_collector))'>common_runtime\eager\kernel_and_device.cc:244.KernelAndDeviceFunc::Init()
         'InstantiateFunc(log_device_placement, ndef, graph_collector)'>kernel_and_device.cc:139.KernelAndDeviceFunc::InstantiateFunc()
-        'pflr_->Instantiate(ndef.op(), AttrSlice(ndef), options, &handle_)'>tensorflow\core\common_runtime\process_function_library_runtime.cc:1509.ProcessFunctionLibraryRuntime::Instantiate()
-          :934.ProcessFunctionLibraryRuntime::InstantiateMultiDevice()<'if (options.is_multi_device_function)'>'InstantiateMultiDevice(function_name, attrs, options, handle)'>process_function_library_runtime.cc:934.ProcessFunctionLibraryRuntime::InstantiateMultiDevice()
-            // Check if this function has already been instantiated.
-            开始创建 mutlDeviceFunc
-            log: process_function_library_runtime.cc:951 << "Instantiating MultiDevice function " << function_name << " on default device " << options.target 
-              function_name: "__wrapped____EagerConst_device_/job:localhost/replica:0/task:0/device:CPU:0"
-              options.target: "/job:localhost/replica:0/task:0/device:CPU:0"
-            log: Requested input devices: [input 0] /job:localhost/replica:0/task:0/device:CPU:0
-            ....
-            :970 'OptimizeFunctionGraph(function_name, attrs, options, dev_set)'>process_function_library_runtime.cc:759.ProcessFunctionLibraryRuntime::OptimizeFunctionGraph()
+          .... 好多 ???
+          :240 'pflr_->Instantiate(ndef.op(), AttrSlice(ndef), options, &handle_)'>common_runtime\process_function_library_runtime.cc:1509.ProcessFunctionLibraryRuntime::Instantiate()
+            :934.ProcessFunctionLibraryRuntime::InstantiateMultiDevice()<'if (options.is_multi_device_function)'>'InstantiateMultiDevice(function_name, attrs, options, handle)'>process_function_library_runtime.cc:934.ProcessFunctionLibraryRuntime::InstantiateMultiDevice()
+              // Check if this function has already been instantiated.
+              开始创建 mutlDeviceFunc
+              log: process_function_library_runtime.cc:951 << "Instantiating MultiDevice function " << function_name << " on default device " << options.target 
+                function_name: "__wrapped____EagerConst_device_/job:localhost/replica:0/task:0/device:CPU:0"
+                options.target: "/job:localhost/replica:0/task:0/device:CPU:0"
+              log: Requested input devices: [input 0] /job:localhost/replica:0/task:0/device:CPU:0
               ....
+              :970 'OptimizeFunctionGraph(function_name, attrs, options, dev_set)'>process_function_library_runtime.cc:759.ProcessFunctionLibraryRuntime::OptimizeFunctionGraph()
+                ....
+                log: core/common_runtime/process_function_library_runtime.cc:483] Trying to determine device for node output_RetVal[T=double]
+                for ....
+                  log: :496] Considering src: _EagerConst src_device: /job:localhost/replica:0/task:0/device:CPU:0 colo group: 
+                  :508 while .... 没进该循环,因没log
+                .... 好多
+                :602 log: process_function_library_runtime.cc:602] Setting output device to /job:localhost/replica:0/task:0/device:CPU:0 for node {{node output_RetVal}} = _Retval[T=DT_DOUBLE, index=0](_EagerConst)
+              ....好多 ???
+              :847 'FunctionOptimizationPassRegistry::Global().Run(' 调用tensorflow/core/common_runtime/function_optimization_registry.h:55.FunctionOptimizationPassRegistry 中注册的优化方法
+                //BT图优 注册机制???
+                调用到 tensorflow/compiler/mlir/mlir_graph_optimization_pass.cc:130.MlirFunctionOptimizationPass::Run()
+                  <该优化方法在tensorflow/compiler/mlir/mlir_graph_optimization_pass_registration.cc:24.'register_mlir_passes(std::make_unique<MlirFunctionOptimizationPass>())'通过注册机制加载到 FunctionOptimizationPassRegistry ??? //BT自动优 BT图优 注册机制???
+                  ....???
+                  :178 'if (overall_state == MlirOptimizationPassState::Disabled)' log: /compiler/mlir/mlir_graph_optimization_pass.cc:180] None of the MLIR Optimization Passes are enabled
+              ....
+              'GraphOptimizationPassOptions optimization_options'组装优化所需参数
+              :885 'DumpGraph("Before running PRE_PLACEMENT passes", graph.get());' log: core/common_runtime/function_utils.cc:78] Graph Before running PRE_PLACEMENT passes #nodes 5 #edges 5
+              'OptimizationPassRegistry::Global()->RunGrouping(' 'OptimizationPassRegistry::PRE_PLACEMENT, optimization_options)'
+                >RunGrouping() log:tensorflow/core/common_runtime/optimization_registry.cc:54] Starting optimization of a group 0 //BT图优 注册机制 ??? 挑几个pass看看
+                log:tensorflow/core/common_runtime/optimization_registry.cc:87] Finished optimization of a group 0
+                .... 很多log //BT图优 注册机制 ??? 挑几个pass看看
+              'DumpGraph("Before calling Placer", graph.get())' log: tensorflow/core/common_runtime/function_utils.cc:78] Graph Before calling Placer #nodes 5 #edges 6
+                .... //BT调度 placement 及其注册 ???
+              'DumpGraph("Before running POST_PLACEMENT passes", graph.get())'
+              'OptimizationPassRegistry::Global()->RunGrouping(' 'OptimizationPassRegistry::POST_PLACEMENT, optimization_options)'
+                log:tensorflow/core/common_runtime/optimization_registry.cc:54] Starting optimization of a group 1
+                ....类似 'Before running PRE_PLACEMENT passes' 一堆log //BT图优
+              'if (options.optimize_graph_fn)'>'DumpGraph("Before running graph optimization fn"'>'options.optimize_graph_fn(' 由于不是tf.fn所以没走该分支 ....
+              'DumpGraph("Before running POST_REWRITE_FOR_EXEC passes"'
+              'OptimizationPassRegistry::Global()->RunGrouping(' 'OptimizationPassRegistry::POST_REWRITE_FOR_EXEC, optimization_options)' 
+                log:tensorflow/core/common_runtime/optimization_registry.cc:54] Starting optimization of a group 2
+                ....类似 'Before running PRE_PLACEMENT passes' 一堆log //BT图优
+              'return OptimizedFunctionGraphInfo{' tensorflow/core/common_runtime/process_function_library_runtime.h:387.// Function graph related information after optimizations. 封装了:graph,lib_def,node_name_to_control_ret,ret_types,num_return_nodes
+            :981 'ReplicatePerReplicaNodesInFunctionGraph(' >tensorflow/core/common_runtime/replicate_per_replica_nodes.cc:253
+              'composite_device_to_cluster_nodes' // Map from a composite device to a cluster of nodes assigned to the // composite device and the numbers of their out edges to process. 
+              'if (composite_device_to_cluster_nodes.empty())' > log: core/common_runtime/replicate_per_replica_nodes.cc:277] No nodes with composiste device found
+              ....上一行就返回了,后面没执行
+            :993 log:process_function_library_runtime.cc:993] Main function graph to be partitioned:
+              DebugString(graph->ToGraphDefDebug():
+                      (input:double@CPU:0) -> (_EagerConst:double@CPU:0) {
+                        _EagerConst = _EagerConst[T=double, _XlaHasReferenceVars=false, device=CPU:0](input)
+                      }
+            :998.'PartitionFunctionGraph(*dev_set, std::move(graph), &subgraphs))'
+              tensorflow/core/common_runtime/partitioning_utils.cc:115.PartitionFunctionGraph()
+                'PartitionFunctionGraph(device_set, graph.get(), &partitions,'>:37.PartitionFunctionGraph() // A helper to partiton a `graph` given a `device_set` and a `graph`.// `partitions` maps device names to the graphdef assigned to that device.
+                  ....???
+                  :70 'return Partition(partition_options, graph, partitions)'
+                    core/graph/graph_partition.cc:981.Partition()
+                      ....???
+                      log:core/graph/graph_partition.cc:1251] Added send/recv: controls=0, data=0
+                :124 'for (auto& partition : partitions) {'
+                  ....???
+                  'new Graph(graph->flib_def().default_registry()))'>tensorflow\core\graph\graph.cc:414&386.构造Graph
+                    ....其它操作
+                    'source = AddNode(def, &status)'
+                    'sink = AddNode(def, &status)'
+                    打印 log:  ???
+                      AddNode: no type constructor for _SOURCE
+                      AddNode: no type constructor for _SINK
+                    'AddControlEdge(source, sink)' ???
+                  'ConvertGraphDefToGraph(opts, std::move(graph_def), subgraph.get())'>tensorflow\core\common_runtime\graph_constructor.cc:1469.ConvertNodeDefsToGraph()
+                    ....BT形状 相关操作 ???
+                    'GraphConstructor::Construct(opts, node_defs, nullptr, nullptr, g,'>tensorflow\core\common_runtime\graph_constructor.cc:486.GraphConstructor::Construct()
+                      'NodeDefCopyingGraphConstructor c(opts, node_defs, versions, library, g,' //BTBT ???为何不用 NodeDefMovingGraphConstructor,不是性能更好么 //BT性能
+                      'c.TryImport()' graph_constructor.cc:188.TryImport()
+                        'Convert()'
+                          :1250 'MakeNode(std::move(node_def), &node)'
+                            :774 'g_->AddNode(std::move(node_def), &status)'
+                              这三个log是此触发打印的???
+                                AddNode: no type constructor for input
+                                AddNode: no type constructor for _EagerConst
+                                AddNode: no type constructor for output_RetVal
+            :1001 'for (const auto& pair : subgraphs) {' > 'DumpGraph(strings::StrCat("Before running POST_PARTITIONING passes ("'
+              log: Graph Before running POST_PARTITIONING passes (/job:localhost/replica:0/task:0/device:CPU:0) #nodes 5 #edges 5
+                  || 
+                  || (n2:double@CPU:0) -> (n3:double@CPU:0) {
+                  ||   n3 = _EagerConst[T=double, _XlaHasReferenceVars=false, device=CPU:0](n2)
+                  || }
+            :1006 'GraphOptimizationPassOptions optimization_options'
+            :1018 'OptimizationPassRegistry::Global()->RunGrouping(' 'OptimizationPassRegistry::POST_PARTITIONING, optimization_options)'
+              log:tensorflow/core/common_runtime/optimization_registry.cc:54] Starting optimization of a group 3
+              ....类似 'Before running PRE_PLACEMENT passes' 一堆log //BT图优
+            :1021 'for (const auto& pair : subgraphs) {' 打印partition后的每个subgraph
+              log: Graph After all optimization passes (/job:localhost/replica:0/task:0/device:CPU:0) #nodes 5 #edges 5
+                  || 
+                  || (n2:double@CPU:0) -> (n3:double@CPU:0) {
+                  ||   n3 = _EagerConst[T=double, _XlaHasReferenceVars=false, device=CPU:0](n2)
+                  || }
+            :1035 'metrics::UpdateFunctionGraphOptimizationTime(optimization_end_time_usecs -' //BT性测
+            ....
+            :1073 'auto runner = [this, num_subgraphs](std::function<void()> fn) {' //BT性能 这是传入的fn的一个wrapper,用于当subgraph太多时启用线程池.这个runner会用于下面的处理每一个subgraph
+            ....
+            :1086 'if (options.allow_small_function_optimizations) {' //BT性能 BT自动优
+            :1101 'for (const auto& pair : subgraphs) {' // Instantiate each component function (subgraph).
+              对于每个subgraph的初始化, 将:1105 到:1184 整个代码块作为fn传入上面提到的wrapper: runner 去执行
+                ....
+                :1116 'status->Update(UpdateArgAndRetvalMetadata(' tensorflow/core/common_runtime/partitioning_utils.cc:197.UpdateArgAndRetvalMetadata()
+                  partitioning_utils.cc:197 ....
+                  :208 'for (Node* node : graph->op_nodes()) {' and 'if (node->IsArg()) {' // Find the Arg and Retval nodes, along with their corresponding indices // in the original function.
+                    ....
+                    :213 'if (node->attrs().Find("sub_index", &attr_value).ok()) {' 
+                      log: No attr named 'sub_index' in NodeDef
+                    ....
+                  ...
+                ....
+                :1126 'GraphToFunctionDef(*subgraph, unique_name, control_ret, &shard)' ..... ???
+                :1131 'status->Update(data_lib_def->AddFunctionDef(shard))'>tensorflow/core/framework/function.cc:1278.FunctionLibraryDefinition::AddFunctionDef()
+                  core/framework/function.cc:1282 'AddFunctionDefHelper(fdef, stack_traces, &added)'>:1285.FunctionLibraryDefinition::AddFunctionDefHelper()
+                    如果在 function_defs_ 中有同签名 FunctionDef 存在,则认为该 FunctionDef 已创建,返回ok
+                    :1301 'if (default_registry_->LookUpOpDef(fdef.signature().name(), &op_def).ok())' 如果 default_registry_ 中有同签名 FunctionDef 存在,则认为已有Op注册过,返回 error
+                    如果找不到同签名的 func 或 op,则基于 FunctionDef 新建一个 FunctionDefAndOpRegistration 插入 function_defs_,并返回 ok
+                :1136.'FunctionLibraryRuntime::InstantiateOptions opts' 封装初始化 component function ??? 所需要的参数
               'GetGraphAndArgRets('>process_function_library_runtime.cc:722.ProcessFunctionLibraryRuntime::GetGraphAndArgRets()
                 'FunctionDefToBodyHelper(*fdef, attrs, lib_def, &fbody)'>tensorflow\core\common_runtime\function_def_utils.cc:82.定义了一个 get_func_sig 的闭包函数传给:29.FunctionDefToBodyHelper()
                   'InstantiateFunction(fdef, attrs, get_func_sig, &result)'>tensorflow\core\framework\function.cc:737.InstantiateFunction()
@@ -350,6 +463,21 @@ tensorflow::ConvertToEagerTensorUncached(TFE_Context*, _object*, tensorflow::Dat
                   // Initialize remote function asynchronously. > 'InstantiateRemote(unique_name, attrs, opts, component_handle, done)' .... ???
             :1194 '*handle = AddMultiDeviceHandle(std::move(data), function_key)' ???
             log: tensorflow/core/common_runtime/process_function_library_runtime.cc:1195] Instantiated MultiDevice function "__wrapped____EagerConst_device_/job:localhost/replica:0/task:0/device:CPU:0" with handle 1
+            .... ??? 处理不是 is_multi_device_function 的情况
+          回到 common_runtime\eager\kernel_and_device.cc:241 kernel_and_device.cc:139.KernelAndDeviceFunc::InstantiateFunc()
+          'return pflr_->IsCrossProcess(handle_, &is_cross_process_)' ???
+        kernel_and_device.cc:249 'return pflr_->GetOutputDevices(handle_, &output_devices_)' ???
+      :1247 对于 'if (op->is_function())' 好像是走else块???
+    :1433 ??? 'status = GetOrCreateKernelAndDevice(op, retvals, num_retvals, &kernel)' 这个GetOrCreateKernelAndDevice有没有被调?
+    :1439 'ValidateInputTypeAndPlacement(&ctx, op, kernel)' >tensorflow\core\common_runtime\eager\execute.cc:208
+      // `op_device_name` the name of the device on which the op will run, if any. // For functions running using function library runtime, the device can be // unspecified.
+      ....
+      log: common_runtime/eager/execute.cc:245] !is_function: 0
+           common_runtime/eager/execute.cc:246] handle->Type(): 0
+      ....
+    ....
+    log: common_runtime/eager/execute.cc:1445] Executing op _EagerConst in device /job:localhost/replica:0/task:0/device:CPU:0
+    :1449 'AddOrExecuteNode(std::move(kernel), op, retvals)' TODO
 
 
 
@@ -359,9 +487,8 @@ tensorflow::ConvertToEagerTensorUncached(TFE_Context*, _object*, tensorflow::Dat
 
 
 
-
-TODAY:
+TODO:
 整理注册机制,以及能学到的.比如宏如何剥离Node,node和device,kernel的关系如何定义等等
-
+op, node, kernle, device, func之间的关系
 
         
