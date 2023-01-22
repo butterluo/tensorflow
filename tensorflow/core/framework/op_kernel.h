@@ -1402,7 +1402,7 @@ class Name : public KernelDefBuilder {
 // So, we pull the "OpName" part to a separate macro-level argument. This
 // involves treating Name("OpName") as a macro call, via token-pasting (e.g.
 // M_## =>  M_Name("OpName")), and having it expand to '"OpName",
-// Name("OpName")' which is then usable as two arguments.
+// Name("OpName")' which is then usable as two arguments. //BT算子 注册宏3 REGISTER_KERNEL_BUILDER_IMPL 宏调到这里,以分离出"OpName"和Name("OpName")部分之后,由 TF_EXTRACT_KERNEL_NAME_IMPL 宏将分离后的字符串作为参数,调 REGISTER_KERNEL_BUILDER_IMPL_2 宏
 #define TF_EXTRACT_KERNEL_NAME_Name(name_str) \
   name_str, ::tensorflow::register_kernel::Name(name_str)
 #define TF_EXTRACT_KERNEL_NAME_IMPL(m, ...) m(__VA_ARGS__)
@@ -1414,7 +1414,7 @@ class Name : public KernelDefBuilder {
 // TODO(dodgen): There are some uses of this macro inside functions, where
 // kernel_builder refers to (non-const) locals (they should be fixed). To
 // accommodate those, kernel_builder.Build() appears as an argument to an
-// immediately-called lambda (not in the lambda itself).
+// immediately-called lambda (not in the lambda itself).//BT算子 注册宏5 由 TF_NEW_ID_FOR_INIT 累加 ctr 后调该宏,这里最终以ctr为名字的一部分,构造
 #define REGISTER_KERNEL_BUILDER_IMPL_3(ctr, op_name, kernel_builder_expr,   \
                                        is_system_kernel, ...)               \
   static ::tensorflow::InitOnStartupMarker const register_kernel_##ctr      \
@@ -1434,17 +1434,17 @@ class Name : public KernelDefBuilder {
              })(kernel_builder_expr.Build());
 
 // REGISTER_KERNEL_BUILDER_IMPL, but with kernel_builder split to op_name,
-// kernel_builder_expr.
+// kernel_builder_expr. //BT算子 注册宏4 宏入参 op_name 和 kernel_builder_expr 由 TF_EXTRACT_KERNEL_NAME>TF_EXTRACT_KERNEL_NAME_Name 得到,这里再调 TF_NEW_ID_FOR_INIT 以得到累加器 ctr 后调 REGISTER_KERNEL_BUILDER_IMPL_3
 #define REGISTER_KERNEL_BUILDER_IMPL_2(op_name, kernel_builder_expr, \
                                        is_system_kernel, ...)        \
   TF_NEW_ID_FOR_INIT(REGISTER_KERNEL_BUILDER_IMPL_3, op_name,        \
                      kernel_builder_expr, is_system_kernel, __VA_ARGS__)
 
-// REGISTER_KERNEL_BUILDER, but with is_system_kernel bound.
+// REGISTER_KERNEL_BUILDER, but with is_system_kernel bound. //BT算子 注册宏2 通过宏 TF_EXTRACT_KERNEL_NAME>TF_EXTRACT_KERNEL_NAME_Name 从 kernel_builder 表达式中分离出"OpName"和Name("OpName")部分
 #define REGISTER_KERNEL_BUILDER_IMPL(kernel_builder, is_system_kernel, ...) \
   TF_EXTRACT_KERNEL_NAME(REGISTER_KERNEL_BUILDER_IMPL_2, kernel_builder,    \
                          is_system_kernel, __VA_ARGS__)
-
+//BT算子 注册宏1
 #define REGISTER_KERNEL_BUILDER(kernel_builder, ...) \
   TF_ATTRIBUTE_ANNOTATE("tf:kernel")                 \
   REGISTER_KERNEL_BUILDER_IMPL(kernel_builder, false, __VA_ARGS__)

@@ -804,7 +804,7 @@ Status WrapInCallOp(EagerOperation* op, EagerOperation** wrapped_op) {
   const OpDef& opdef = OpRegistry::Global()->LookUp(op->Name())->op_def;
   // Raise an error for ops which don't support wrapping yet. This includes
   // ops with list inputs/outputs and ops with private attrs.
-  // TODO(srbs): Support list inputs/outputs.
+  // TODO(srbs): Support list inputs/outputs.//BT算子 看实现的确'list inputs/outputs'已支持,只是排查pravate attr这种不支持的情况
   TF_RETURN_IF_ERROR(VerifyWrappableInCallOp(opdef, op));
 
   // Build a FunctionDef containing op as a node and register with context.
@@ -819,7 +819,7 @@ Status WrapInCallOp(EagerOperation* op, EagerOperation** wrapped_op) {
   auto op_attrs = op->GetOpAttrs();
   string fname;
   TF_RETURN_IF_ERROR(BuildWrappedOpName(op, opdef, op_attrs, &fname));
-  if (!op->EagerContext().GetFunctionDef(fname)) {
+  if (!op->EagerContext().GetFunctionDef(fname)) { //BT算子 BT自定函 调FunctionLibraryDefinition::Find(function_name)->FunctionDef
     FunctionDef fdef;
     // Set signature.
     TF_RETURN_IF_ERROR(
@@ -965,7 +965,7 @@ Status ExtractFunctionInputInfo(
     std::unordered_map<int, DtypeAndPartialTensorShape>&
         input_resource_variable_dtypes_and_shapes) {
   profiler::TraceMe activity("EagerCopyToDevice",
-                             profiler::TraceMeLevel::kInfo);
+                             profiler::TraceMeLevel::kInfo);//BT跟踪
   EagerContext& ctx = op->EagerContext();
   input_device_ptrs.reserve(op->Inputs().size());
   const absl::InlinedVector<TensorHandle*, 4>* inputs;
@@ -1014,7 +1014,7 @@ Status ExtractFunctionInputInfo(
 Status SetOpDevice(EagerContext& ctx, EagerOperation* op, Device** device) {//BT设备
   // Here in local execute, set preferred device to be on the local task to
   // avoid placing op on a remote device with higher priority.
-  const DeviceNameUtils::ParsedName& preferred_device =
+  const DeviceNameUtils::ParsedName& preferred_device = //拿到传入的op和ctx中的dev信息
       DeviceNameUtils::HasSomeDetails(op->GetDeviceParsedName())
           ? op->GetDeviceParsedName()
           : DeviceNameUtils::AddressSpace(ctx.HostCPUParsedName());
@@ -1023,7 +1023,7 @@ Status SetOpDevice(EagerContext& ctx, EagerOperation* op, Device** device) {//BT
   // place the wrapped op on a GPU (if one is available) which leads to
   // errors because placer pins the function output nodes to GPU thereby
   // forcing a H2D copy of the dataset variant which is not supported.
-  auto ndef = op->MutableAttrs()->BuildNodeDef();
+  auto ndef = op->MutableAttrs()->BuildNodeDef();//从op的attr信息中得到NodeDef给SelectDevice()去获取可支持该Node的设备.
 #ifdef INTEL_MKL
   if (IsMKLEnabled() &&
       absl::StartsWith(op->Name(), mkl_op_registry::kMklOpPrefix)) {
@@ -1053,11 +1053,11 @@ Status GetOrCreateKernelAndDevice(
     EagerOperation* op, TensorHandle** retvals, int* num_retvals,
     core::RefCountPtr<KernelAndDevice>* out_kernel) {
   EagerContext& ctx = op->EagerContext();
-  Device* device = absl::get<Device*>(op->Device());
+  Device* device = absl::get<Device*>(op->Device());//BT算子 BT设备 device何时set进op中 ???
 
   // Set the EagerOperation's device prior to extracting the input_device_ptrs
   // to avoid any redundant H2D/D2H copies.//BT性能 BT设备
-  if (device == nullptr && !op->is_function()) {
+  if (device == nullptr && !op->is_function()) {//BT算子 ??? is_function 何时设置
     Fprint128 device_cache_key = GetDeviceCacheKey(op, ctx);
     device = ctx.GetCachedDevice(device_cache_key);
     if (device == nullptr) {
@@ -1087,7 +1087,7 @@ Status GetOrCreateKernelAndDevice(
     kernel_def = GetKernelDef(*op, node_def, device);
   }
   if (op->is_function() || ctx.RunEagerOpAsFunction()) {
-    TF_RETURN_IF_ERROR(ExtractFunctionInputInfo(
+    TF_RETURN_IF_ERROR(ExtractFunctionInputInfo(//BT设备 TODO
         op, kernel_def, input_device_ptrs, composite_devices,
         input_resource_variable_dtypes_and_shapes));
   }
@@ -1096,10 +1096,10 @@ Status GetOrCreateKernelAndDevice(
       Fprint128 cache_key,
       GetKernelCacheKey(*op, op->MutableAttrs()->CacheKey(op->DeviceName()),
                         input_device_ptrs,
-                        input_resource_variable_dtypes_and_shapes));
+                        input_resource_variable_dtypes_and_shapes));//BT缓存 BT算子 BTTODO
   core::RefCountPtr<KernelAndDevice> kernel = ctx.GetCachedKernel(cache_key);//BTBT 看看能否从cache中通过key找到对应的kernel(tf.fn的key是函数签名,普通op的key是注册op时的名字与属性kv值以及当前所在device组成,但XLA op的key是啥???)
   AbstractOperationPtr wrapped_op_releaser;
-  // We can eliminate some overhead by running simple functions using regular
+  // We can eliminate some overhead by running simple functions using regular  //BT算子 BT设备 BTTODO ???
   // CallOp kernel. However, it is tricky to figure out which functions should
   // be run using CallOp. Also, currently CallOp runs neither optimization
   // passes (needed for TPU/XLA) nor grappler.
@@ -1120,7 +1120,7 @@ Status GetOrCreateKernelAndDevice(
     bool run_function_with_flr = false;
     bool function_outputs_on_op_device = false;
     absl::optional<string> xla_compile_device_type;
-    if (op->is_function()) {
+    if (op->is_function()) {//BTBT ??? 不确定是不是处理@tf.fn的场景?
       bool compile_with_xla;
       TF_RETURN_IF_ERROR(MustCompileWithXLA(op, ctx, &compile_with_xla));
       if (compile_with_xla) {
@@ -1142,14 +1142,14 @@ Status GetOrCreateKernelAndDevice(
 
     VLOG(2) << op->Name() << " function_outputs_on_op_device: "
             << function_outputs_on_op_device;
-    if (device == nullptr) {
+    if (device == nullptr) {//BT设备 ??? 什么情况下device到这里都还是Null
       TF_RETURN_IF_ERROR(SetOpDevice(ctx, op, &device));
     } else {
       VLOG(1) << "Device for [" << op->Name()
               << "] already set to: " << device->name();
     }
 
-    // Note: We wrap the eager op AFTER the device has been inferred to ensure
+    // Note: We wrap the eager op AFTER the device has been inferred to ensure//BT算子 BT设备 BTTODO ???
     // that placement of the NodeDef in the function is exactly the same as in
     // eager mode. This is specially important for cases where the
     // preferred device is not the actual device on which the op is run.
@@ -1167,7 +1167,7 @@ Status GetOrCreateKernelAndDevice(
     bool allow_control_flow_sync_execution = false;
     // TODO(b/176491312): Remove this if shape inference on import flag is
     // removed.
-    bool shape_inference_on_tfe_dialect_import = true;
+    bool shape_inference_on_tfe_dialect_import = true;//BTBT tfe是tf eager mode的意思
     if (ctx.RunEagerOpAsFunction() && !op->is_function()) {
       EagerOperation* wrapped_op = nullptr;
       TF_RETURN_IF_ERROR(ValidateOp(op));
@@ -1399,8 +1399,8 @@ Status EagerLocalExecute(EagerOperation* op, TensorHandle** retvals,
   profiler::ScopedMemoryDebugAnnotation op_annotation(
       op->op_name(), op->eager_func_params().has_value()
                          ? op->eager_func_params().value().step_id.value_or(0)
-                         : 0);
-  profiler::TraceMe activity(
+                         : 0);//BT调试 BT性能
+  profiler::TraceMe activity(//BT跟踪
       [&] { return absl::StrCat("EagerLocalExecute: ", op->Name()); },
       profiler::TraceMeLevel::kInfo);
   EagerContext& ctx = op->EagerContext();
@@ -1791,9 +1791,9 @@ Status EagerExecute(EagerOperation* op, TensorHandle** retvals,
         {{"eager_op", op->Name()}, {"is_func", op->is_function()}});
   });
 
-  if (!op->Executor().Async()) {
+  if (!op->Executor().Async()) {//BTBT 如果不是异步
     VLOG(6) << "op: " << op->Name() << " is not Async.";
-    if (!op->EagerContext()
+    if (!op->EagerContext() //??? Returns the global_rendezvous_for_functions' underlying LocalRendezvous' //status. If the underlying Rendezvous is not in the local_rendezvous_table_ //returns OK.
              .GetGlobalRendezvousForFunctionLocalRendezvousStatus()
              .ok()) {
       VLOG(6) << "global_rendezvous_for_functions_ is in bad state. Resetting.";
@@ -1810,9 +1810,9 @@ Status EagerExecute(EagerOperation* op, TensorHandle** retvals,
 
   if (op->IsLocal()) {
     if (out_op) {
-      op = out_op.get();
+      op = out_op.get();//BT张量 ??? 怎么直接把out_op代替op?为何可以这样?
     }
-    TF_RETURN_IF_ERROR(MaybePackInputTensor(op));
+    TF_RETURN_IF_ERROR(MaybePackInputTensor(op));//BT张量 ???//Run a Pack op to pack the tensors pointed by a packed input TensorHandle if //the op is a primitive op.
     return EagerLocalExecute(op, retvals, num_retvals);
   }
 

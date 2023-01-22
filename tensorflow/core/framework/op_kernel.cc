@@ -1306,7 +1306,7 @@ void* GlobalKernelRegistry() {
 
 static KernelRegistry* GlobalKernelRegistryTyped() {
 #ifdef AUTOLOAD_DYNAMIC_KERNELS
-  LoadDynamicKernels();
+  LoadDynamicKernels();  //BT算子 用于加载用户自定义的kernel. 见: https://tensorflow.google.cn/api_docs/python/tf/load_library?hl=en 
 #endif  // AUTOLOAD_DYNAMIC_KERNELS
   auto* registry = reinterpret_cast<KernelRegistry*>(GlobalKernelRegistry());
   // Update or disable JIT kernels based on user configuration. This is a
@@ -1378,10 +1378,10 @@ Status FindKernelRegistration(
 
   const string& label = GetKernelLabelAttr(node_attrs);
 
-  const string key = Key(node_op, device_type, label);
+  const string key = Key(node_op, device_type, label);//BT算子 ??? node_op=op_type=op_name 么?node_name 和 node_op 有何联系?如何从一个找到另一个?
   auto typed_registry = GlobalKernelRegistryTyped();
   tf_shared_lock lock(typed_registry->mu);
-  auto regs = typed_registry->registry.equal_range(key);
+  auto regs = typed_registry->registry.equal_range(key);//BTBT typed_registry->registry是unordered_multimap<string, KernelRegistration>,一个key可有多个val
   for (auto iter = regs.first; iter != regs.second; ++iter) {
     // If there is a kernel registered for the op and device_type,
     // check that the attrs match.
@@ -1402,7 +1402,7 @@ Status FindKernelRegistration(
         }
         // iter->second's priority is higher than *reg.
       }
-      *reg = &iter->second;
+      *reg = &iter->second; //BTBT 结合上面的'else if ((*reg)->def.priority() > iter->second.def.priority())',即reg只保存key说对应的val.def.priority最大的那个
     } else {
       *was_attr_mismatch = true;
     }
@@ -1410,7 +1410,7 @@ Status FindKernelRegistration(
   // Check if no device specific registrations found. If not, try finding a
   // default kernel.
   if (*reg == nullptr &&
-      !IsSymbolicExecutionDevice(device_type.type_string())) {
+      !IsSymbolicExecutionDevice(device_type.type_string())) {//BT设备 ??? '!IsSymbolicExecutionDevice(device_type.type_string())'啥意思
     const string default_key = Key(node_op, DEVICE_DEFAULT, label);
     auto regs = typed_registry->registry.equal_range(default_key);
     for (auto iter = regs.first; iter != regs.second; ++iter) {
@@ -1421,7 +1421,7 @@ Status FindKernelRegistration(
           KernelAttrsMatch(iter->second.def, node_attrs, &match));
       if (match) {
         if (*reg != nullptr) {
-          return errors::InvalidArgument(
+          return errors::InvalidArgument(//BT设备 op在DEVICE_DEFAULT上对应的kernel只能有一个
               "Multiple Default OpKernel registrations match NodeDef '",
               FormatNodeDefForError(node_name, has_experimental_debug_info,
                                     experimental_debug_info),
@@ -1487,7 +1487,7 @@ Status FindKernelDef(
         FormatNodeDefForError(node_name, has_experimental_debug_info,
                               experimental_debug_info));
     if (was_attr_mismatch) {
-      errors::AppendToMessage(
+      errors::AppendToMessage(//BT算子 找到的kernel如果与请求的attr不完全相同,是否可以用 ???
           &s, " (OpKernel was found, but attributes didn't match) ",
           "Requested Attributes: ",
           SummarizeAttrsHelper(node_attrs, node_device));

@@ -60,7 +60,7 @@ Status CustomDeviceOpHandler::Execute(ImmediateExecutionOperation* op,
   TF_RETURN_IF_ERROR(MaybePinToCustomDevice(&custom_device, *op));//BT设备
 
   if (custom_device != nullptr) {
-    return custom_device->Execute(op, retvals, num_retvals);
+    return custom_device->Execute(op, retvals, num_retvals);//BTBT TODO
   }
 
   // The op will be placed on physical device. However, it contains custom

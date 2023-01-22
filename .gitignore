@@ -47,3 +47,7 @@ gradleBuild
 Podfile.lock
 Pods
 xcuserdata
+
+log.txt
+cachExtnl
+*.log2
