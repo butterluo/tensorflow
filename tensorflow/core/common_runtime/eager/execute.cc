@@ -306,14 +306,13 @@ const KernelDef* GetKernelDef(const EagerOperation& op, const NodeDef* node_def,
 
 bool IsHostMemoryArg(const EagerOperation& op, const NodeDef* node_def,
                      const Device* op_device, const KernelDef* kernel_def,
-                     const int port_id) {
-  if (op.is_function()) return false;
+                     const int port_id) {//BT算子 BT张量 BT设备
+  if (op.is_function()) return false;// ??? func op的input_/output_arg就不能在host memory?为何?
   if (node_def == nullptr) return false;
   if (kernel_def == nullptr || op_device == nullptr) return false;
-  const auto& host_memory_args = kernel_def->host_memory_arg();
+  const auto& host_memory_args = kernel_def->host_memory_arg();//core/framework/kernel_def.proto:31// Names of the Op's input_/output_args that reside in host memory // instead of device memory.
   const OpDef& op_def = OpRegistry::Global()->LookUp(op.Name())->op_def;
-  const int arg_id = OpPortIdToArgId(*node_def, op_def.input_arg(), port_id);
-  // Fail if argument ID not found.
+  const int arg_id = OpPortIdToArgId(*node_def, op_def.input_arg(), port_id);//core/framework/node_def_util.cc:603// Map a node/op's input/output port_id to arg_id.// The port_id refers to the n-th tensor of the node, while the arg_id refers to// the n-th arg of the op. These two can be different if an op's arg is a list// of tensors.// We return -1 for any invalid port_id (i.e., no corresponding arg_id).  // Fail if argument ID not found.
   if (arg_id < 0) {
     return false;
   }
@@ -324,9 +323,9 @@ bool IsHostMemoryArg(const EagerOperation& op, const NodeDef* node_def,
 Status GetDeviceForInput(const EagerOperation& op, const EagerContext& ctx,
                          const bool is_host_memory_arg,
                          TensorHandle* tensor_handle, Device** result) {
-  Device* cpu_device = ctx.HostCPU();
+  Device* cpu_device = ctx.HostCPU();//BT张量 BT设备 BT算子 BT调度 为input张量做placement. 一般来说就是用TensorHandle.servie或localhost的cpu,但对于func op用的是op.device. 不同情况下的TensorHandle.device和localhost.device的来源不同.具体见函数内注释
   string device_name;
-  if (tensor_handle->Type() != TensorHandle::LOCAL) {
+  if (tensor_handle->Type() != TensorHandle::LOCAL) {//BT张量 TensorHandler.type是何时设置的?逻辑规则是什么???
     Device* device = tensor_handle->device();
     device_name = device != nullptr ? device->name() : cpu_device->name();
     *result = (device == nullptr ? cpu_device : device);
@@ -361,7 +360,7 @@ Status GetDeviceForInput(const EagerOperation& op, const EagerContext& ctx,
     } else {
       // Eager ops executing as functions should have their preferred inputs set
       // to the op's device. This allows us to avoid expensive D2H copies if a
-      // mirror of the tensor already exists on the op's device.
+      // mirror of the tensor already exists on the op's device.//BT算子 BT设备 BT张量 BT性能 ??? 为何只有func op的input是放在op device? output呢? 普通op的为何就放在TensorHandle.device?
       if (!op.is_function() && device != cpu_device && !is_host_memory_arg) {
         device = absl::get<Device*>(op.Device());
       }
@@ -861,7 +860,7 @@ Status WrapInCallOp(EagerOperation* op, EagerOperation** wrapped_op) {
   // Build the call op.
   auto& ctx = op->EagerContext();
   AbstractOperationPtr call_op(ctx.CreateOperation());
-  TF_RETURN_IF_ERROR(call_op->Reset(fname.c_str(), op->DeviceName().c_str()));
+  TF_RETURN_IF_ERROR(call_op->Reset(fname.c_str(), op->DeviceName().c_str()));//BT算子 BT自定函 新建的call_op以fname为名字,会使它无法在OpRegistry中找到,进而变成一个is_function_=true的fn op
   for (auto t : op->Inputs()) {
     TF_RETURN_IF_ERROR(call_op->AddInput(t));
   }
@@ -969,11 +968,11 @@ Status ExtractFunctionInputInfo(
   EagerContext& ctx = op->EagerContext();
   input_device_ptrs.reserve(op->Inputs().size());
   const absl::InlinedVector<TensorHandle*, 4>* inputs;
-  TF_RETURN_IF_ERROR(op->TensorHandleInputs(&inputs));
+  TF_RETURN_IF_ERROR(op->TensorHandleInputs(&inputs));//BT算子 EagerOperation的input是在py端算子到c端算子粒度API时(比如EagerConst())调用TFE_OpAddInput()>op.AddInput()将从py端算子传过来的input添加到op中的
   Device* op_device = nullptr;
   const NodeDef* node_def = nullptr;
   if (!op->is_function()) {
-    op_device = absl::get<Device*>(op->Device());
+    op_device = absl::get<Device*>(op->Device());//BTCPP variant的用法
     node_def = &op->MutableAttrs()->BuildNodeDef();
   }
   for (int i = 0, end = inputs->size(); i < end; ++i) {
@@ -981,9 +980,9 @@ Status ExtractFunctionInputInfo(
 
     Device* input_device;
     bool is_host_memory_arg =
-        IsHostMemoryArg(*op, node_def, op_device, kernel_def, i);
+        IsHostMemoryArg(*op, node_def, op_device, kernel_def, i);//BT算子 BT张量 BT设备 检查第i个input是否在host memory.注意这个i是port_idx而非arg_idx,具体区别与转换逻辑,以及检查逻辑请看IsHostMemoryArg函数注释
     TF_RETURN_IF_ERROR(
-        GetDeviceForInput(*op, ctx, is_host_memory_arg, input, &input_device));
+        GetDeviceForInput(*op, ctx, is_host_memory_arg, input, &input_device));//BT算子 BT张量 BT设备 ??? 里面的input tensor的device placement规则不大明白?以及input TensorHandle.type是如何设置?
     VLOG(1) << op->Name() << ":input:" << i << " " << input_device->name();
     input_device_ptrs.push_back(input_device);
     CompositeDevice* composite_device = nullptr;
@@ -992,7 +991,7 @@ Status ExtractFunctionInputInfo(
       composite_devices[input_device->name()] =
           composite_device->underlying_devices();
     }
-    if (input->dtype == DT_RESOURCE) {
+    if (input->dtype == DT_RESOURCE) {//BT张量 ??? input TensorHandle.type是如何设置?
       // We only care about data type and shape for resource variable inputs.
       // But we have no way to tell if input is resource variable (other than
       // looking it up in ResourceMgr, which is slow). So we just get
@@ -1011,10 +1010,10 @@ Status ExtractFunctionInputInfo(
   return OkStatus();
 }
 
-Status SetOpDevice(EagerContext& ctx, EagerOperation* op, Device** device) {//BT设备
+Status SetOpDevice(EagerContext& ctx, EagerOperation* op, Device** device) {//BT设备 BT调度
   // Here in local execute, set preferred device to be on the local task to
   // avoid placing op on a remote device with higher priority.
-  const DeviceNameUtils::ParsedName& preferred_device = //拿到传入的op和ctx中的dev信息
+  const DeviceNameUtils::ParsedName& preferred_device = //拿到传入的op和ctx中的dev信息,在EagerConst()时通过op.SetDeviceName()设置.即//BT算子 到了py端算子对应的c端算子粒度的API时,创建并初始化EagerOperation时设置op的device_parsed_name_和device_name_
       DeviceNameUtils::HasSomeDetails(op->GetDeviceParsedName())
           ? op->GetDeviceParsedName()
           : DeviceNameUtils::AddressSpace(ctx.HostCPUParsedName());
@@ -1022,7 +1021,7 @@ Status SetOpDevice(EagerContext& ctx, EagerOperation* op, Device** device) {//BT
   // Without this, when wrapping CPU-only ops like RangeDataset we would
   // place the wrapped op on a GPU (if one is available) which leads to
   // errors because placer pins the function output nodes to GPU thereby
-  // forcing a H2D copy of the dataset variant which is not supported.
+  // forcing a H2D copy of the dataset variant which is not supported.//BT设备 BT调度 ??? 此注释怎么理解?
   auto ndef = op->MutableAttrs()->BuildNodeDef();//从op的attr信息中得到NodeDef给SelectDevice()去获取可支持该Node的设备.
 #ifdef INTEL_MKL
   if (IsMKLEnabled() &&
@@ -1053,12 +1052,12 @@ Status GetOrCreateKernelAndDevice(
     EagerOperation* op, TensorHandle** retvals, int* num_retvals,
     core::RefCountPtr<KernelAndDevice>* out_kernel) {
   EagerContext& ctx = op->EagerContext();
-  Device* device = absl::get<Device*>(op->Device());//BT算子 BT设备 device何时set进op中 ???
+  Device* device = absl::get<Device*>(op->Device());//BT算子 BT设备 device何时set进op中?python/eager/pywrap_tensor.cc:269.EagerConst创建和初始化EagerOperation时会调它的SetDeviceName;在core/common_runtime/eager/core.cc:163.EagerOperation::Execute若要pin 到resource device或cpu的话,会调它的SetDevice()
 
   // Set the EagerOperation's device prior to extracting the input_device_ptrs
   // to avoid any redundant H2D/D2H copies.//BT性能 BT设备
-  if (device == nullptr && !op->is_function()) {//BT算子 ??? is_function 何时设置
-    Fprint128 device_cache_key = GetDeviceCacheKey(op, ctx);
+  if (device == nullptr && !op->is_function()) {//BT算子 is_function 何时设置?python/eager/pywrap_tensor.cc:269.EagerConst创建和初始化EagerOperation时会调它的Reset(),在里面会基于一定规则设置is_function;后面在把非func op封装wrap成func op时,对于wrappedop也会调Reset去设置is_function
+    Fprint128 device_cache_key = GetDeviceCacheKey(op, ctx);//BT缓存 BT设备 key和val是什么???
     device = ctx.GetCachedDevice(device_cache_key);
     if (device == nullptr) {
       TF_RETURN_IF_ERROR(SetOpDevice(ctx, op, &device));
@@ -1405,7 +1404,7 @@ Status EagerLocalExecute(EagerOperation* op, TensorHandle** retvals,
       profiler::TraceMeLevel::kInfo);
   EagerContext& ctx = op->EagerContext();
   auto& executor = op->Executor();
-  TF_RETURN_IF_ERROR(executor.status());
+  TF_RETURN_IF_ERROR(executor.status()); // Returns Status based on any errors that occurred during async execution. //BT异步 BT性能 BT调试
 
   core::RefCountPtr<KernelAndDevice> kernel;
   auto status = GetOrCreateKernelAndDevice(op, retvals, num_retvals, &kernel);

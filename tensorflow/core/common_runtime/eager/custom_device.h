@@ -61,7 +61,7 @@ class CustomDevice {
 // Custom devices do many of the same things as physical Devices, but have a
 // much more restricted interface. We pass around ambiguous pointers since
 // operations may be placed either on custom or physical devices.
-using VariantDevice = absl::variant<Device*, CustomDevice*>;
+using VariantDevice = absl::variant<Device*, CustomDevice*>;//BTCPP
 
 // Indicates either HostCPU or an unset physical device. We never set a null
 // CustomDevice*.

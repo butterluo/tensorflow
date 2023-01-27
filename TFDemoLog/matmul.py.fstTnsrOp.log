@@ -227,7 +227,8 @@ To enable them in other operations, rebuild TensorFlow with the appropriate comp
 2023-01-12 09:34:37.550916: I tensorflow/core/common_runtime/eager/execute.cc:1143] _EagerConst function_outputs_on_op_device: 0
 2023-01-12 09:34:37.550951: I tensorflow/core/common_runtime/eager/execute.cc:1148] Device for [_EagerConst] already set to: /job:localhost/replica:0/task:0/device:CPU:0
 2023-01-12 09:34:37.550996: I tensorflow/core/common_runtime/eager/context.cc:743] RunEagerOpAsFunction: 1
-2023-01-12 09:34:37.563607: I tensorflow/core/common_runtime/eager/execute.cc:858] signature {
+2023-01-12 09:34:37.563607: I tensorflow/core/common_runtime/eager/execute.cc:858] 
+signature {
   name: "__wrapped____EagerConst_device_/job:localhost/replica:0/task:0/device:CPU:0"
   input_arg {
     name: "input"

@@ -309,14 +309,14 @@ Status EagerOperation::SetInput(size_t index,
   return OkStatus();
 }
 
-Status EagerOperation::Reset(
+Status EagerOperation::Reset(//BT算子 用op(op name)对应的注册信息,属性等对本EagerOperation进行初始化
     const char* op, const char* device_name, bool remote,
     EagerExecutor* executor,
     const absl::optional<EagerFunctionParams> eager_func_params) {
   DCHECK(inputs_.empty());
   ClearInferenceState();
   bool is_function = false;
-  TF_RETURN_IF_ERROR(AttrTypeMapForOp(op, &attr_types_, &is_function));
+  TF_RETURN_IF_ERROR(AttrTypeMapForOp(op, &attr_types_, &is_function));//BT算子 先判断op是否function,如果无法从 OpRegistry 找到对应的OpDef,则是is_function并返回func op默认的attrName和对应typ的map,否则如果是非func的op则返回注册时的attrName和对应的typ的map
 
   // Don't update the device of direct function calls.
   // Particularly, if the user did not explicitly request any device for this
@@ -325,11 +325,11 @@ Status EagerOperation::Reset(
   // functions since the not-explicitly-placed nodes inside the body will all
   // end up on this default device.
   colocation_exempt_ = is_function;
-  if (!is_function) {
+  if (!is_function) {//BT算子 BT设备 从InputColocationExemptionRegistry注释可知,一般来说op的device要和op所需要的resource的device是同一个,但有些时候未必如此,而 InputColocationExemptionRegistry 中说注册的就是'未必如此'的那些op,而如果op is_function 则一定是'未必如此'的
     const auto& exempt_ops = InputColocationExemptionRegistry::Global()->Get();
     colocation_exempt_ = exempt_ops.find(op) != exempt_ops.end();
 
-    TF_RETURN_IF_ERROR(OpDefForOp(op, &op_def_));
+    TF_RETURN_IF_ERROR(OpDefForOp(op, &op_def_));//通过 op name 从 OpRegistry 找 OpDef
   } else if (!remote && !ctx_.FindFunctionByName(op)) {
     return errors::NotFound(
         "'", op,
@@ -427,7 +427,7 @@ Status EagerOperation::InferInputListAttrs(int num_inputs) {
 }
 
 Status EagerOperation::TensorHandleInputs(
-    const absl::InlinedVector<TensorHandle*, 4>** inputs) const {
+    const absl::InlinedVector<TensorHandle*, 4>** inputs) const {//BT张量 BT性能 ???absl::InlinedVector的用法?
   if (TF_PREDICT_TRUE(!HasCustomDeviceInput())) {
     *inputs = reinterpret_cast<const absl::InlinedVector<TensorHandle*, 4>*>(
         &inputs_);

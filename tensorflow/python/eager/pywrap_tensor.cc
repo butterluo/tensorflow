@@ -268,9 +268,9 @@ Safe_TFE_TensorHandlePtr EagerConst(TFE_Context* ctx, TFE_TensorHandle* handle,
                                     TF_Status* out_status) {
   const char* op_name = "_EagerConst";
   std::unique_ptr<TFE_Op, decltype(&TFE_DeleteOp)> op(
-      TFE_NewOp(ctx, op_name, out_status), TFE_DeleteOp);
+      TFE_NewOp(ctx, op_name, out_status), TFE_DeleteOp);//BT算子
   if (!out_status->status.ok()) return nullptr;
-  TFE_OpSetDevice(op.get(), device_name, out_status);
+  TFE_OpSetDevice(op.get(), device_name, out_status);//BT算子 BT设备
   if (!out_status->status.ok()) return nullptr;
   TFE_OpAddInput(op.get(), handle, out_status);
   if (!out_status->status.ok()) return nullptr;

@@ -76,20 +76,20 @@ bool IsFunction(StringPiece op_name) {
   }
   return false;
 }
-
+//BT调度 检查op能否pin到CPU
 Status MaybePinSmallOpsToCpu(
     bool* result, StringPiece op_name,
     absl::Span<ImmediateExecutionTensorHandle* const> args,
     StringPiece cpu_device_name) {
   if (IsFunction(op_name) || IsColocationExempt(op_name) ||
-      !IsPinnableOp(op_name)) {
+      !IsPinnableOp(op_name)) {//BT调度 func op, colocation exempt的op(即无须与所需resource同device的op),以及一些特定的非pinnable的op,均无法 pin 到CPU
     *result = false;
     return OkStatus();
   }
 
   // Ops without inputs are usually ops that generate a tensor in some way and
   // usually require being present on whatever device they are scheduled on
-  // - for e.g. VarHandleOp or _Recv).
+  // - for e.g. VarHandleOp or _Recv).//BT调度 ??? 为何没有input和arg就不能Pin到CPU
   if (args.empty()) {
     *result = false;
     return OkStatus();
@@ -106,19 +106,19 @@ Status MaybePinSmallOpsToCpu(
              << DataTypeString(dtype) << " input device = " << device_name;
 
     // Input is on CPU.
-    if (device_name != cpu_device_name) {
+    if (device_name != cpu_device_name) {//本来input就在CPU的,由于colocation,自然会在放在CPU上 ??? 怎么放的?
       *result = false;
       return OkStatus();
     }
 
-    if (dtype != DataType::DT_INT32 && dtype != DataType::DT_INT64) {
+    if (dtype != DataType::DT_INT32 && dtype != DataType::DT_INT64) {//不是in32或int64t的不会pin到CPU ??? 为何?CPU处理浮点慢?
       *result = false;
       return OkStatus();
     }
 
     int64_t num_elements;
     TF_RETURN_IF_ERROR(arg->NumElements(&num_elements));
-    if (num_elements > 64) {
+    if (num_elements > 64) {//input的元素太多,>64的不放在CPU上
       *result = false;
       return OkStatus();
     }
@@ -130,12 +130,12 @@ Status MaybePinSmallOpsToCpu(
   DVLOG(1) << "Forcing op " << op_name
            << " to be on the CPU since all input tensors have an "
               "int32/int64 dtype, and are small (less than 64 elements).";
-  *result = true;
+  *result = true; //BT调度 通过了以上检验的才能pin到CPU
   return OkStatus();
 }
 
 Status MaybePinToResourceDevice(Device** device, const EagerOperation& op) {
-  if (op.colocation_exempt()) {
+  if (op.colocation_exempt()) {//??? 这个在哪儿设置的,忘了?
     return OkStatus();
   }
   EagerContext& ctx = op.EagerContext();

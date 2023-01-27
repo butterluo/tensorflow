@@ -9,59 +9,79 @@
         
         
 
-EagerTensor_init  tensorflow/python/eager/pywrap_tensor.cc:498//BTBT 转py传入的参数和Ctx
-tensorflow::ConvertToEagerTensor(TFE_Context*, _object*, tensorflow::DataType, char const*) tensorflow/python/eager/pywrap_tensor.cc:389 //BTBT 从缓存取TensorHandler,若没有则调ConvertToEagerTensorUncached.  ??? TFE_TensorHandleCache的K和V是什么
-tensorflow::ConvertToEagerTensorUncached(TFE_Context*, _object*, tensorflow::DataType, char const*) tensorflow/python/eager/pywrap_tensor.cc:288 
-                                                    //BT张量 
-                                                    创建包含了Tensor的TensorHandle:tensorflow/python/lib/core/py_seq_tensor.cc.PySeqToTFE_TensorHandle>'FloatConverter::Convert(ctx, obj, &state, &handle, &error)'
+EagerTensor_init  python/eager/pywrap_tensor.cc:499//BTBT 转py传入的参数和Ctx
+  'PyArg_ParseTupleAndKeywords' 从py端传入的PyObject中提取各种参数,使用 'ConvertDeviceName'得到 device_name,使用 'ConvertDataType'得到 dtype(data type) //BT设备 BT张量
+tensorflow::ConvertToEagerTensor(TFE_Context*, _object*, tensorflow::DataType, char const*) python/eager/pywrap_tensor.cc:392 //BTBT 从缓存取TensorHandler,若没有则调ConvertToEagerTensorUncached.  ??? TFE_TensorHandleCache的K和V是什么 //BT张量 //BT缓存
+tensorflow::ConvertToEagerTensorUncached(TFE_Context*, _object*, tensorflow::DataType, char const*) python/eager/pywrap_tensor.cc:292 
+                                                    //BT张量 基于Py端传入的入参创建TensorHandle
+                                                    创建包含了Tensor的TensorHandle:python/lib/core/py_seq_tensor.cc.PySeqToTFE_TensorHandle>'FloatConverter::Convert(ctx, obj, &state, &handle, &error)'
                                                       其实就是调EagerCtx中类似CreateFloatScalar()的方法创建Tensor然后把Tensor通过类似CreateLocalHandle()的方法封装到TensorHandle中返回,最终拿到的是可操作Tensor的TensorHandle
-:377 tensorflow::EagerConst(TFE_Context*, TFE_TensorHandle*, char const*, TF_Status*) tensorflow/python/eager/pywrap_tensor.cc:280 
-                                                    //BT算子 
-                                                      创建EagerOperation:tensorflow/c/eager/c_api.cc:629.TFE_NewOp()>'unwrap(ctx)->CreateOperation()'>tensorflow/core/common_runtime/eager/core.cc:155.EagerContext::CreateOperation()
-                                                      设置operation的相关属性:TFE_OpSetDevice,TFE_OpAddInput,TFE_OpSetAttrType, //BT设备 BT张量                                                      
-:280 TFE_Execute tensorflow/c/eager/c_api.cc:886       
+:377 tensorflow::EagerConst(TFE_Context*, TFE_TensorHandle*, device_name, TF_Status*) python/eager/pywrap_tensor.cc:269
+                                                    //BT算子 到了py端算子对应的c端算子粒度的API时,创建并初始化EagerOperation
+                                                      创建 EagerOperation:c/eager/c_api.cc:629.TFE_NewOp()>'unwrap(ctx)->CreateOperation()'>core/common_runtime/eager/core.cc:155.EagerContext::CreateOperation()
+                                                      设置 EagerOperation 的相关属性:在TFE_NewOp中调EagerOperation.Reset(),以及在EagerConst()调TFE_OpSetDevice,TFE_OpAddInput,TFE_OpSetAttrType(其实这三函数起的只是解warp的作用,实际调的也是EagerOperation对应的函数) //BT设备 BT张量
+                                                        'EagerOperation::Reset(//BT算子 用op(op name)对应的注册信息,属性等对本EagerOperation进行初始化'core/common_runtime/eager/eager_operation.cc:316 此时并没传入device_name
+                                                          设置 is_function_,默认false,但调 AttrTypeMapForOp()时如果无法从 OpRegistry 找到对应的OpDef,则是true并返回func op默认的attrName和对应typ的map,否则如果是false,即不是func op则返回注册时的attrName和对应的typ的map
+                                                          设置 colocation_exempt_,如果是func op或者InputColocationExemptionRegistry中有注册的op是可以不与其所需的resource放在同一个device上的,即设为true
+                                                          具体看函数的注释
+:280 TFE_Execute c/eager/c_api.cc:886       
   获取 ImmediateExecutionOperation 以调 CustomDeviceOpHandler::Execute().  ImmediateExecutionOperation见tf.mdj.                              
-:892 tensorflow::CustomDeviceOpHandler::Execute(tensorflow::ImmediateExecutionOperation*, tensorflow::ImmediateExecutionTensorHandle**, int*)tensorflow/core/common_runtime/eager/custom_device_op_handler.cc:55
-  如果是自定义设备上的op或者该op牵涉到放在自定义设备上的tensor,则做相应的处理 TODO //BT设备 BT张量
-  然后'op->Execute('调下面
-:92 tensorflow::EagerOperation::Execute(AbstractTensorHandle retvals, int num_retvals)tensorflow/core/common_runtime/eager/core.cc:161 
-  'WaitUnknownDevice()' TensorHandle::WaitUnknownDevice() //If the devices are unknown at creation time, block until the actual devices //are set (data is ready). //BT张量 ???
-  'MaybePinToResourceDevice(&device, *this)' //BT算子 ???
-  'MaybePinSmallOpsToCpu(' //BT算子 //BT性能 ???
-  //BT设备 尝试获取device,但不确定这里能否拿到???
-  然后'EagerExecute(this, retval_array, num_retvals)'调下面
-:190 tensorflow::EagerExecute(EagerOperation op, TensorHandle retvals, int num_retvals)tensorflow/core/common_runtime/eager/execute.cc:1786 *72分支点*
+:892 tensorflow::CustomDeviceOpHandler::Execute(ImmediateExecutionOperation op<EagerOperation>, ImmediateExecutionTensorHandle retvals, num_retvals)core/common_runtime/eager/custom_device_op_handler.cc:58
+  //BT张量 BT调度 若是CustomDevice上的input张量,则转移到op的设备
+  如果 'MaybePinToCustomDevice' op是基于CustomDevice的话,则 'custom_device->Execute(op' 在自定义设备:CustomDevice 上执行op (???CustomDevice是啥?)
+  如果 'if (tensorflow::CustomDeviceTensorHandle::classof(inputs[i]))' 有input来自CustomDevice,则 'previous->device()->CopyTensorFromDevice(' 把CustomDevice中的tensor复制到op所在的target_device(一般是op中设置的,如果没设,则用 'op->GetContext()->HostCPUName()')
+  然后'op->Execute(' 本场景是直接调EagerOperation.Execute()
+:92 tensorflow::EagerOperation::Execute(AbstractTensorHandle retvals, num_retvals)core/common_runtime/eager/core.cc:163 
+  //BT张量 BT设备
+  'WaitUnknownDevice()' TensorHandle::WaitUnknownDevice() //If the devices are unknown at creation time, block until the actual devices //are set (data is ready). //BT张量 BT多线程 等待input的各tensor所属的device都准备完毕
+  //BT调度 做PinToResourceDevice和PinSmallOpsToCpu相关调度(EagerOperation.SetDevice)
+  'MaybePinToResourceDevice(&device, *this)' //BT算子 BT调度 core/common_runtime/eager/placement_utils.cc:138 在 'op.colocation_exempt()'为false时,将op的device设置到input tensor的设备(tensor_handle->resource_device())上(colocation_exempt_在EagerOperation.Reset()中设置)
+  'MaybePinSmallOpsToCpu(' //BT算子 BT性能 BT调度 检查op是否能pin到CPU,MaybePinSmallOpsToCpu()中有判断规则:比如非func op, 非collocation exempt等等,详见函数内注释
+  //BT设备 若之前MaybePinToResourceDevice和MaybePinSmallOpsToCpu函数确定了EagerOperation的所属Device,则这里调用EagerOperation.SetDevice()设置device.
+  然后调用下面EagerExecute
+:190 tensorflow::EagerExecute(EagerOperation, TensorHandle retvals, num_retvals)core/common_runtime/eager/execute.cc:1788 *72分支点*
   'if (!op->Executor().Async())' 该场景是异步,故不进入该代码块 //BT异步
-  'EagerOpRewriteRegistry::PRE_EXECUTION, op, &out_op)' 在pre_execution的点加入算子rewrite的优化点.其注册机制为:调 eager_op_rewrite_registry.h 中的 REGISTER_REWRITE 宏进行注册,然后通过 eager_op_rewrite_registry.cc 的 EagerOpRewriteRegistry::Global()->RunRewrite() 进行调用 //BT图优
-  'if (op->IsLocal()) {' 本场景是 local 故执行下面的EagerLocalExecute. 但'op = out_op.get()'和'MaybePackInputTensor(op)'没搞懂
-  :1816 EagerLocalExecute() tensorflow/core/common_runtime/eager/execute.cc:1411
-    :1411 和 1433???....GetOrCreateKernelAndDevice() core/common_runtime/eager/execute.cc:1052
-      :1064 调 SetOpDevice() core/common_runtime/eager/execute.cc:1034 < ('if (device == nullptr && !op->is_function())' 同时 GetCachedDevice 找不到device) //BT设备 // Set the EagerOperation's device prior to extracting the input_device_ptrs// to avoid any redundant H2D/D2H copies.
-        拿到传入的op和ctx中的dev信息 preferredDevice, 以及从op的attr信息中得到NodeDef给SelectDevice()去获取可支持该Node的设备.
-        :1034 EagerContext::SelectDevice(preferredDevice,nodeDef,output) tensorflow/core/common_runtime/eager/context.cc:355
-                                                      //BT设备 
-                                                        三个设备来源:传入的 preferredDevice;SupportedDeviceTypesForNode()得到支持传入的nodeDef的所有设备;'pflr_device_set->prioritized_devices()'???得到的existingDevices;
-                                                        通过context.cc.SelectBestMatchingDevice()确定合适的设备    //BT设备 如何确定最合适设备 ???
+  'EagerOpRewriteRegistry::PRE_EXECUTION, op, &out_op)' 在pre_execution的点加入算子rewrite的优化点.//BT图优 PRE_EXECUTION貌似没有相关pass???
+    其注册机制为:调 eager_op_rewrite_registry.h 中的 REGISTER_REWRITE 宏进行注册,然后通过 eager_op_rewrite_registry.cc 的 EagerOpRewriteRegistry::Global()->RunRewrite() 进行调用 
+  'if (op->IsLocal()) {' 本场景是 local 故执行下面的EagerLocalExecute. 但 'op = out_op.get()'和 'MaybePackInputTensor(op)'没搞懂
+  :1816 EagerLocalExecute() core/common_runtime/eager/execute.cc:1400
+    :1411 和 1433???....GetOrCreateKernelAndDevice(EagerOperation, TensorHandle retvals, num_retvals, out_kernel) core/common_runtime/eager/execute.cc:1056 //BT算子 创建和初始化KernelAndDevice赋给out_kernel
+      :1064 调 SetOpDevice() core/common_runtime/eager/execute.cc:1015 < ('if (device == nullptr && !op->is_function())' 同时 GetCachedDevice 找不到device) //BT设备 // Set the EagerOperation's device prior to extracting the input_device_ptrs// to avoid any redundant H2D/D2H copies. ???
+        //BT设备 BT调度 拿到传入的op和ctx中的dev信息 preferredDevice, 以及从op的attr信息中得到NodeDef给SelectDevice()去获取可支持该Node的设备.
+        'op->GetDeviceParsedName()' 这个值在EagerConst()时通过op.SetDeviceName()设置.即//BT算子 到了py端算子对应的c端算子粒度的API时,创建并初始化EagerOperation时设置op的device_parsed_name_和device_name_
+        :1034 EagerContext::SelectDevice(preferredDevice,nodeDef,output) core/common_runtime/eager/context.cc:353
+                                                      //BT设备 BT调度
+                                                        三个设备来源:
+                                                          传入的 preferredDevice(含op中设置的,以及ctx中的本地cpu);
+                                                          SupportedDeviceTypesForNode()得到该ctx中的支持传入的nodeDef的所有设备;
+                                                            来源<ctx.prioritized_device_type_list_<EagerContext::InitPrioritizedDeviceTypeList()
+                                                              InitPrioritizedDeviceTypeList()被调用的地方:EagerContext::EagerContext()&AddDevices&StoreCollectiveOpsServer&UpdateRemoteMaster&SetMasterContextState&InitializeRemoteWorker&UpdateRemoteWorker
+                                                          'pflr_device_set->prioritized_devices()'得到的existingDevices;  pflr.device_set_貌似是ctx.prioritized_device_type_list_的子集???
+                                                            来源<在创建EagerContext时会调它的ctx.ResetRFLR()去创建ProcessFunctionLibraryRuntime,
+                                                              <在ProcessFunctionLibraryRuntime()里面会调rflr.InitializeDeviceAndFlr()初始化rflr.device_set_
+                                                              <在EagerContext.UpdateRemoteMaster()&UpdateRemoteWorker()中也会调rflr.InitializeDeviceAndFlr()去更新rflr.device_set_
+                                                        通过context.cc.SelectBestMatchingDevice()确定合适的设备    //???如何确定最合适设备?
                                                         若第一次找不到合适的,则考虑'AllowSoftPlacement()'去找合适的设备
-          :371&383 SupportedDeviceTypesForNode() tensorflow/core/framework/op_kernel.cc //BT设备 返回该节点上支持该op的设备,按某种优先级排序 ???
-        log: core/common_runtime/eager/execute.cc:1036] PreferredDevice _EagerConst: /job:localhost/replica:0/task:0  //BT算子 ??? 算子名 _EagerConst 在前面哪里设置的 ?
+          :371&383 SupportedDeviceTypesForNode() core/framework/op_kernel.cc //BT设备 返回该节点上支持该op的设备,按某种优先级排序 ???
+        log: core/common_runtime/eager/execute.cc:1036] PreferredDevice _EagerConst: /job:localhost/replica:0/task:0  //BT算子 op_name=_EagerConst python/eager/pywrap_tensor.cc:269.EagerConst()中设置,即在调用到py端算子对应的c端算子粒度API时设置.
         log: core/common_runtime/eager/execute.cc:1037] Placer place op [_EagerConst] on device: /job:localhost/replica:0/t
         log: core/common_runtime/eager/execute.cc:1039] Available kernels for _EagerConst are  调 core/framework/op_kernel.cc:1623.KernelsRegisteredForOp()打印注册在该op_name下的各个kernel, ??? 怎么为op注册kernel的
-      'ctx.AddDeviceToCache(device_cache_key, device)' 把SetOpDevice()中拿到的device放入cache //BT设备 BT缓存
+        'op->SetDevice(*device)'最终的placement用EagerOperation.SetDevice()确定
+      1065:'ctx.AddDeviceToCache(device_cache_key, device)' 把SetOpDevice()中拿到的device放入cache //BT设备 BT缓存
       'bool reuse_rendezvous_for_functions =' 判断是否要为各个function设置共用的通信会合点 ??? // When running in eager_op_as_function mode Send/Recv ops need to be // placed on the same rendezvous to match the behaviour of eager mode. //BT自定函 BT通信 ???何时初始化或确定 eager_op_as_function mode
         <'(ctx.RunEagerOpAsFunction() && !op->is_function()) ||' log: core/common_runtime/eager/context.cc:743] RunEagerOpAsFunction: 1  该场景下ctx.中RunEagerOpAsFunction返回true,与操作后,赋值true给reuse_rendezvous_for_functions
       1087: 'if (!op->is_function())'>'kernel_def = GetKernelDef(*op, node_def, device)'core/common_runtime/eager/execute.cc:298>:300 FindKernelDef(deviceType,nodeDef,kernelDef,kernelClassName)tensorflow/core/framework/op_kernel.cc:1477
-        通过EagerOperation,NodeDef从注册器中找对应的KernelDef //BT算子 ???貌似并没创建 kernel
+        通过EagerOperation,NodeDef从注册器KernelRegistry中找对应的KernelDef //BT算子 ???貌似并没创建 kernel
         :1479 'FindKernelRegistration(' core/framework/op_kernel.cc:1379 
           到kernel注册器 KernelRegistry 中搜索与 key(opName,deviceType,label)对应的KernelRegistration. KernelRegistration中包含了创建kernel实体所需的(KernelDef,kernel_class_name,OpKernelFactory)
-          'typed_registry = GlobalKernelRegistryTyped()'>tensorflow/core/framework/op_kernel.cc:1308 获取注册器
+          'typed_registry = GlobalKernelRegistryTyped()'core/framework/op_kernel.cc:1308 获取注册器
             'LoadDynamicKernels()' //BT算子 需要用宏AUTOLOAD_DYNAMIC_KERNELS打开.用于加载用户自定义的kernel. 见: https://tensorflow.google.cn/api_docs/python/tf/load_library?hl=en 
             'registry = reinterpret_cast<KernelRegistry*>(GlobalKernelRegistry())'获取注册器 KernelRegistry
           TODO:
-            tensorflow/core/kernels/identity_op.cc中搜索'Name("_EagerConst")'可见一个Op类型可对应多个kernel,
+            tensorflow/core/kernels/identity_op.cc中搜索'Name("_EagerConst")'可见一个Op类型可对应多个kernel;但一个op_name,一个device,一套label对应一个kernel
             tensorflow/core/framework/op_kernel.h:1389 'class Name : public KernelDefBuilder'
             'REGISTER_KERNEL_BUILDER(Name("_EagerConst").Device(DEVICE_CPU), IdentityOp);'中的'Name("_EagerConst").Device(DEVICE_CPU)'就是创建一个 KernelDefBuilder 的Name子类,然后传入"_EagerConst"这个opName到构造方法,然后再链式调用这个KernelDefBuilder的各个方法传入对应信息
-            而其中'REGISTER_KERNEL_BUILDER'宏是如何起作用的,可参考tensorflow/core/framework/op_kernel.h:1448 中的 '//BT算子 注册宏[1-5]'的注释
+            而其中'REGISTER_KERNEL_BUILDER'宏是如何起作用的,见 core/framework/op_kernel.h:1448 中的 '//BT算子 注册宏[1-5]'的注释
             把 KernelDefBuilder.Build()得到的kernel传入OpKernelRegistrar构造函数>OpKernelRegistrar::InitInternal()tensorflow/core/framework/op_kernel.cc:1321
             以'Key(kernel_def->op(), DeviceType(kernel_def->device_type()), kernel_def->label())'为键,'KernelRegistration(*kernel_def, kernel_class_name, std::move(factory))'为值传入GlobalKernelRegistry()->registry这个 unordered_multimap<string, KernelRegistration>中,也就是说,kernel是在要用的时候,再基于key拿到KernelRegistration,然后调它的'unique_ptr<kernel_factory::OpKernelFactory> factory'创建的
             貌似NodeDef.op()和op_type和op_name是一个东西???
@@ -95,6 +115,7 @@ tensorflow::ConvertToEagerTensorUncached(TFE_Context*, _object*, tensorflow::Dat
         'BuildWrappedOpName(op, opdef, op_attrs, &fname)' //BT算子 构建wrappable CallOp名字的规则没搞懂??? variadic input/output是指维度是可变形状的出入参的意思?比如a[?,3]之类的?
         :822 'if (!op->EagerContext().GetFunctionDef(fname)) {' 先通过 'BuildWrappedOpName(op, opdef, op_attrs, &fname)' 构造func name,如果该func name在ctx的缓存中无法找到,则走该代码块构建一个对应的FunctionDef //BT算子 
         'BuildWrappedOpSignature(op, opdef, fname, *fdef.mutable_signature()))' 和 BuildWrappedOpName() 类似,没看懂注释 ??? //BT算子 BT张量
+        创建一个 FunctionDef 并用已有的'op, opdef, fname'信息对其初始化. 这里FunctionDef和NodeDef是啥关系?一个FunctionDef包含一个NodeDef??? //BT算子 BT图 BT节点 
         :858 log: core/common_runtime/eager/execute.cc:858]   .... 打印FunctionDef.DebugString()
                 signature {  
                   name: "__wrapped____EagerConst_device_/job:localhost/replica:0/task:0/device:CPU:0"
@@ -136,6 +157,10 @@ tensorflow::ConvertToEagerTensorUncached(TFE_Context*, _object*, tensorflow::Dat
                   找不到报错
                   log: tensorflow/core/framework/op.cc:130] All registered Ops
                   log: Op type not registered => trace:tensorflow::EagerContext::AddFunctionDef
+        :861 // Build the call op.
+        'ctx = op->EagerContext()'>'call_op(ctx.CreateOperation())'>'call_op->Reset(fname.c_str(), op->DeviceName().c_str())'通过op得到EagerContext并新建一个EagerOperation,把EagerOperation的名字Reset()为fname,
+          //BT算子 BT自定函 新建的call_op以fname为名字,会使它无法在OpRegistry中找到,进而变成一个is_function_=true的func op
+        新建op赋值给wrapped_op并用原op的input和attr对其进行初始化后返回
       'if (run_function_with_flr)'
         // Treat the function as multi_device only when we are not compiling
         // it wholly with XLA. When compiling wholly with XLA, flr->CreateKernel

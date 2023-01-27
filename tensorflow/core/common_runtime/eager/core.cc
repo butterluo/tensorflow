@@ -162,26 +162,26 @@ Status EagerOperation::Execute(absl::Span<AbstractTensorHandle*> retvals,
                                int* num_retvals) {
   for (ImmediateExecutionTensorHandle* handle : inputs_) {
     if (TensorHandle::classof(handle)) {
-      TF_RETURN_IF_ERROR(down_cast<TensorHandle*>(handle)->WaitUnknownDevice());//BT多线程 BT张量 BT设备
+      TF_RETURN_IF_ERROR(down_cast<TensorHandle*>(handle)->WaitUnknownDevice());//BT多线程 BT张量 BT设备 等待input的各tensor所属的device都准备完毕
     }
   }
 
   // Run eager placement logic.
-  class Device* device = absl::get<class Device*>(Device());//BT设备 调EagperOperation::Device()
+  class Device* device = absl::get<class Device*>(Device());//BT设备 获取EagperOperation.device_,此时应该是nullptr
   if (device == nullptr) {
-    TF_RETURN_IF_ERROR(eager::MaybePinToResourceDevice(&device, *this));
+    TF_RETURN_IF_ERROR(eager::MaybePinToResourceDevice(&device, *this));//BT调度 检查op是否可以放到与其所需resource一致的device上,判断的规则见 MaybePinToResourceDevice()
   }
-  if (device == nullptr && ctx_.PinSmallOpsToCPU()) {
+  if (device == nullptr && ctx_.PinSmallOpsToCPU()) {//BT调度 ctx_.PinSmallOpsToCPU()是在创建EagerContext时从环境变量获取的值
     bool pin_to_cpu;
-    TF_RETURN_IF_ERROR(eager::MaybePinSmallOpsToCpu(//BT性能
+    TF_RETURN_IF_ERROR(eager::MaybePinSmallOpsToCpu(//BT性能 BT调度 检查op是否能pin到CPU,MaybePinSmallOpsToCpu()中有判断规则:比如非func op, 非collocation exempt等等,详见函数内注释
         &pin_to_cpu, Name(), GetInputs(), ctx_.HostCPU()->name()));
-    if (pin_to_cpu) {
+    if (pin_to_cpu) {//BT调度 如果需要Pin到CPU,在这里设置device,然后在后面SetDevice(), ??? 那后续在placement时是不是就不用做了?
       device = ctx_.HostCPU();
     }
   }
 
   if (device != nullptr) {
-    SetDevice(device);//BT设备 初始访问能取到device吗?如果不是初次呢???
+    SetDevice(device);//BT调度 若之前MaybePinToResourceDevice和MaybePinSmallOpsToCpu函数确定了EagerOperation的所属Device,则这里调用EagerOperation.SetDevice()设置device.
   }
   // At this point all inputs and outputs are TensorHandles associated with
   // physical devices.
