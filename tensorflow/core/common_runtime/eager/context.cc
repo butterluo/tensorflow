@@ -1141,7 +1141,7 @@ Status EagerContext::FindDeviceFromName(const char* device_name,
 
 Status EagerContext::FindCompositeDeviceFromName(
     StringPiece device_name, CompositeDevice** device) const {
-  tf_shared_lock l(composite_devices_mu_);
+  tf_shared_lock l(composite_devices_mu_);//BTCPP BT多线程 BT线程安全
   for (const auto& d : composite_devices_) {
     if (d.second->name() == device_name) {
       *device = d.second.get();

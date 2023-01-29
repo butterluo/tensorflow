@@ -312,18 +312,19 @@ bool IsHostMemoryArg(const EagerOperation& op, const NodeDef* node_def,
   if (kernel_def == nullptr || op_device == nullptr) return false;
   const auto& host_memory_args = kernel_def->host_memory_arg();//core/framework/kernel_def.proto:31// Names of the Op's input_/output_args that reside in host memory // instead of device memory.
   const OpDef& op_def = OpRegistry::Global()->LookUp(op.Name())->op_def;
-  const int arg_id = OpPortIdToArgId(*node_def, op_def.input_arg(), port_id);//core/framework/node_def_util.cc:603// Map a node/op's input/output port_id to arg_id.// The port_id refers to the n-th tensor of the node, while the arg_id refers to// the n-th arg of the op. These two can be different if an op's arg is a list// of tensors.// We return -1 for any invalid port_id (i.e., no corresponding arg_id).  // Fail if argument ID not found.
+  const int arg_id = OpPortIdToArgId(*node_def, op_def.input_arg(), port_id);//core/framework/node_def_util.cc:603// Map a node/op's input/output port_id to arg_id.// The port_id refers to the n-th tensor of the node, while the arg_id refers to// the n-th arg of the op. These two can be different if an op's arg is a list// of tensors.// We return -1 for any invalid port_id (i.e., no corresponding arg_id).  
+  // Fail if argument ID not found.
   if (arg_id < 0) {
     return false;
   }
   return std::find(host_memory_args.begin(), host_memory_args.end(),
-                   op_def.input_arg(arg_id).name()) != host_memory_args.end();
+                   op_def.input_arg(arg_id).name()) != host_memory_args.end();//host_memory_args保存的是在host mem中的arg name,所以要先把port_id转成arg_id然后从op_def.input_arg中找到arg name,才知道这个arg name对应的数据是否在host mem中
 }
 
 Status GetDeviceForInput(const EagerOperation& op, const EagerContext& ctx,
                          const bool is_host_memory_arg,
                          TensorHandle* tensor_handle, Device** result) {
-  Device* cpu_device = ctx.HostCPU();//BT张量 BT设备 BT算子 BT调度 为input张量做placement. 一般来说就是用TensorHandle.servie或localhost的cpu,但对于func op用的是op.device. 不同情况下的TensorHandle.device和localhost.device的来源不同.具体见函数内注释
+  Device* cpu_device = ctx.HostCPU();//BT张量 BT设备 BT算子 BT调度 为input张量做placement. 一般来说就是用TensorHandle.device或localhost的cpu,但对于func op用的是op.device. 不同情况下的TensorHandle.device和localhost.device的来源不同.具体见函数内注释
   string device_name;
   if (tensor_handle->Type() != TensorHandle::LOCAL) {//BT张量 TensorHandler.type是何时设置的?逻辑规则是什么???
     Device* device = tensor_handle->device();
@@ -980,18 +981,18 @@ Status ExtractFunctionInputInfo(
 
     Device* input_device;
     bool is_host_memory_arg =
-        IsHostMemoryArg(*op, node_def, op_device, kernel_def, i);//BT算子 BT张量 BT设备 检查第i个input是否在host memory.注意这个i是port_idx而非arg_idx,具体区别与转换逻辑,以及检查逻辑请看IsHostMemoryArg函数注释
+        IsHostMemoryArg(*op, node_def, op_device, kernel_def, i);//BT算子 BT张量 BT设备 检查第i个input是否在host memory.注意这个i是port_idx而非arg_idx,前者指某个in/out的tensor,后者指某个in/out的参数.具体区别与转换逻辑,以及检查逻辑请看IsHostMemoryArg函数注释.core\common_runtime\eager\execute.cc:308
     TF_RETURN_IF_ERROR(
-        GetDeviceForInput(*op, ctx, is_host_memory_arg, input, &input_device));//BT算子 BT张量 BT设备 ??? 里面的input tensor的device placement规则不大明白?以及input TensorHandle.type是如何设置?
+        GetDeviceForInput(*op, ctx, is_host_memory_arg, input, &input_device));//BT算子 BT张量 BT设备 BT调度>:326.GetDeviceForInput 为input张量做placement. 一般来说就是用TensorHandle.device或localhost的cpu,但对于func op用的是op.device. 不同情况下的TensorHandle.device和localhost.device的来源不同.具体见函数内注释
     VLOG(1) << op->Name() << ":input:" << i << " " << input_device->name();
     input_device_ptrs.push_back(input_device);
     CompositeDevice* composite_device = nullptr;
-    if (ctx.FindCompositeDeviceFromName(input_device->name(), &composite_device)
+    if (ctx.FindCompositeDeviceFromName(input_device->name(), &composite_device)//BT算子 BT张量 BT设备 BT调度 如果给input分配的device是CompositeDevice,那么该device应由多个device组成,把该device作为key而它的underlying_devices作为val对应起来. ???ctx.composite_devices_ 在哪里如何初始化的?
             .ok()) {
       composite_devices[input_device->name()] =
           composite_device->underlying_devices();
     }
-    if (input->dtype == DT_RESOURCE) {//BT张量 ??? input TensorHandle.type是如何设置?
+    if (input->dtype == DT_RESOURCE) {//BT数据类型 ??? input TensorHandle.type是如何设置?DT_RESOURCE是啥?
       // We only care about data type and shape for resource variable inputs.
       // But we have no way to tell if input is resource variable (other than
       // looking it up in ResourceMgr, which is slow). So we just get
@@ -1086,7 +1087,7 @@ Status GetOrCreateKernelAndDevice(
     kernel_def = GetKernelDef(*op, node_def, device);
   }
   if (op->is_function() || ctx.RunEagerOpAsFunction()) {
-    TF_RETURN_IF_ERROR(ExtractFunctionInputInfo(//BT设备 TODO
+    TF_RETURN_IF_ERROR(ExtractFunctionInputInfo(//BT张量 BT调度 提取每个input的
         op, kernel_def, input_device_ptrs, composite_devices,
         input_resource_variable_dtypes_and_shapes));
   }
@@ -1809,7 +1810,7 @@ Status EagerExecute(EagerOperation* op, TensorHandle** retvals,
 
   if (op->IsLocal()) {
     if (out_op) {
-      op = out_op.get();//BT张量 ??? 怎么直接把out_op代替op?为何可以这样?
+      op = out_op.get();
     }
     TF_RETURN_IF_ERROR(MaybePackInputTensor(op));//BT张量 ???//Run a Pack op to pack the tensors pointed by a packed input TensorHandle if //the op is a primitive op.
     return EagerLocalExecute(op, retvals, num_retvals);
