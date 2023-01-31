@@ -496,13 +496,13 @@ FunctionLibraryRuntimeImpl::FunctionLibraryRuntimeImpl(
   };
   thread::ThreadPool* pool = nullptr;
   if (device_ != nullptr) {
-    pool = device_->tensorflow_device_thread_pool();
+    pool = device_->tensorflow_device_thread_pool();//BT设备 BT多线程 ??? device_->tensorflow_device_thread_pool()是啥?哪里设的?
   }
   if (pool == nullptr) {
-    pool = default_thread_pool;
+    pool = default_thread_pool;//BT多线程 ???
   }
   if (pool != nullptr) {
-    default_runner_ = [pool](Executor::Args::Closure c) {
+    default_runner_ = [pool](Executor::Args::Closure c) {//BT多线程 ??? pool最终是啥?Executor::Args::Closure是啥?
       pool->Schedule(std::move(c));
     };
   }

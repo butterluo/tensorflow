@@ -268,7 +268,7 @@ void EagerContext::ResetPFLR(const DeviceMgr* device_mgr, Env* env,
                              const FunctionLibraryDefinition* lib_def,
                              const OptimizerOptions& optimizer_options,
                              thread::ThreadPool* thread_pool,
-                             DistributedFunctionLibraryRuntime* cluster_flr) {
+                             DistributedFunctionLibraryRuntime* cluster_flr) {//BT算子 BT自定函 创建pflr
   Rendezvous::Factory rendezvous_factory{
       [this](const int64_t step_id, const DeviceMgr*, Rendezvous** r) {
         *r = CreateRendezvous(step_id);

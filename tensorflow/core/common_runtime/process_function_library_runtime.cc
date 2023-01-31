@@ -96,11 +96,11 @@ ProcessFunctionLibraryRuntime::ProcessFunctionLibraryRuntime(
     DistributedFunctionLibraryRuntime* parent,
     const SessionMetadata* session_metadata,
     Rendezvous::Factory rendezvous_factory)
-    : parent_(parent),
+    : parent_(parent),//BT算子 BT自定函 BT分布式 c_api.cc.TFE_NewContext()中cluster_flr=null,但却调'eager_context->SetDistributedManager(' ???
       env_(env),
       config_(config ? absl::make_optional(*config) : absl::nullopt),
       device_mgr_(device_mgr),
-      lib_def_(lib_def),
+      lib_def_(lib_def),//BT自定函 在EagerContext初始化时在context.h它的属性'FunctionLibraryDefinition func_lib_def_{OpRegistry::Global(), {}}'也被创建,然后传到此
       default_thread_pool_(default_thread_pool),
       flr_map_(new std::unordered_map<Device*,
                                       std::unique_ptr<FunctionLibraryRuntime>>),
@@ -109,7 +109,7 @@ ProcessFunctionLibraryRuntime::ProcessFunctionLibraryRuntime(
       rendezvous_factory_(std::move(rendezvous_factory)),
       optimizer_options_(optimizer_options),
       graph_def_version_(graph_def_version) {
-  if (device_mgr == nullptr) {
+  if (device_mgr == nullptr) {//BT设备 BT自定函 device_mgr非null,在c_api.cc.TFE_NewContext()中创建<'new tensorflow::DynamicDeviceMgr(std::move(devices)))'
     (*flr_map_)[nullptr] = NewFunctionLibraryRuntime(
         nullptr, env, config_ ? &(*config_) : nullptr, nullptr,
         graph_def_version, lib_def_, default_thread_pool, optimizer_options,
@@ -223,8 +223,8 @@ void ProcessFunctionLibraryRuntime::InitializeDeviceAndFlr() {
   // 2) Include local devices from the local device_mgr_.
   // In both scenarios, no device is added more than one times.
   mutex_lock l(mu_);
-  device_set_ = std::make_shared<DeviceSet>();
-  if (parent_ != nullptr && parent_->remote_device_mgr() != nullptr) {
+  device_set_ = std::make_shared<DeviceSet>();//BTCPP share_ptr的用法
+  if (parent_ != nullptr && parent_->remote_device_mgr() != nullptr) {//BT分布式 local场景时parent_是null,不走此
     for (auto d : parent_->remote_device_mgr()->ListDevices()) {
       Device* device = nullptr;
       if (device_mgr_->LookupDevice(d->name(), &device) == OkStatus()) {
@@ -237,17 +237,17 @@ void ProcessFunctionLibraryRuntime::InitializeDeviceAndFlr() {
     }
   } else {
     for (auto d : device_mgr_->ListDevices()) {
-      device_set_->AddDevice(d);
+      device_set_->AddDevice(d);//BT设备 ??? DeviceSet貌似有按device优先级排序功能
     }
   }
 
   // Update flr_map_ by adding new devices
   for (Device* d : device_mgr_->ListDevices()) {
     if ((*flr_map_)[d] == nullptr) {
-      (*flr_map_)[d] = NewFunctionLibraryRuntime(
+      (*flr_map_)[d] = NewFunctionLibraryRuntime(//BT自定函 core\common_runtime\function.cc:1416
           device_mgr_, env_, config_ ? &(*config_) : nullptr, d,
           graph_def_version_, lib_def_, default_thread_pool_,
-          optimizer_options_, session_metadata_, this);
+          optimizer_options_, session_metadata_, this/*parent*/);
     }
   }
 }
