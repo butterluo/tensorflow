@@ -147,11 +147,11 @@ tensorflow::ConvertToEagerTensorUncached(ctx, valFromPy, DataType, device_name) 
       :1145 'if (device == nullptr)' 不成立,因为刚进 GetOrCreateKernelAndDevice() 时就在 :1064 调了 SetOpDevice()去设device
          所以打印 log: /core/common_runtime/eager/execute.cc:1148] Device for [_EagerConst] already set to: /job:localhost/replica:0/task:0/device:CPU:0
       :1171 'if (ctx.RunEagerOpAsFunction() && !op->is_function()) {' 满足条件并进入该代码块
-        该代码块主要是讲不是func却又要按func的玩法运行的op,封装成func op.....??? 这里的func可能就是@tf.fn的意思
+        该代码块主要是讲不是func却又要按func的玩法运行的op,封装成func op.....//BT算子 ??? 这里的func可能就是@tf.fn的意思? 基本上eager模式都是这种func op?
       :1174 'WrapInCallOp(op, &wrapped_op)'>WrapInCallOp() core/common_runtime/eager/execute.cc:803 负责封装op为func op. 
         'VerifyWrappableInCallOp(opdef, op)' // Raise an error for ops which don't support wrapping yet. //BT算子 看实现的确'list inputs/outputs'已支持,只是排查pravate attr这种不支持的情况
         'BuildWrappedOpName(op, opdef, op_attrs, &fname)' //BT算子 构建wrappable CallOp名字的规则没搞懂??? variadic input/output是指维度是可变形状的出入参的意思?比如a[?,3]之类的?
-        :822 'if (!op->EagerContext().GetFunctionDef(fname)) {' 先通过 'BuildWrappedOpName(op, opdef, op_attrs, &fname)' 构造func name,如果该func name在ctx的缓存中无法找到,则走该代码块构建一个对应的FunctionDef //BT算子 
+        :822 'if (!op->EagerContext().GetFunctionDef(fname)) {' 先通过 'BuildWrappedOpName(op, opdef, op_attrs, &fname)' 构造func name,如果该func name在ctx的缓存中无法找到,则走该代码块构建一个对应的FunctionDef //BT算子 BT自定函
         'BuildWrappedOpSignature(op, opdef, fname, *fdef.mutable_signature()))' 和 BuildWrappedOpName() 类似,没看懂注释 ??? //BT算子 BT张量
         创建一个 FunctionDef 并用已有的'op, opdef, fname'信息对其初始化. 这里FunctionDef和NodeDef是啥关系?一个FunctionDef包含一个NodeDef??? //BT算子 BT图 BT节点 
         :858 log: core/common_runtime/eager/execute.cc:858]   .... 打印FunctionDef.DebugString()

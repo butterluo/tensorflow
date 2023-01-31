@@ -1168,7 +1168,7 @@ Status GetOrCreateKernelAndDevice(
     // TODO(b/176491312): Remove this if shape inference on import flag is
     // removed.
     bool shape_inference_on_tfe_dialect_import = true;//BTBT tfe是tf eager mode的意思
-    if (ctx.RunEagerOpAsFunction() && !op->is_function()) {
+    if (ctx.RunEagerOpAsFunction() && !op->is_function()) {//BT算子 把原op封装到一个func op中
       EagerOperation* wrapped_op = nullptr;
       TF_RETURN_IF_ERROR(ValidateOp(op));
       TF_RETURN_IF_ERROR(WrapInCallOp(op, &wrapped_op));
@@ -1190,13 +1190,13 @@ Status GetOrCreateKernelAndDevice(
     const NodeDef& ndef = op->MutableAttrs()->BuildNodeDef();
 
     FunctionLibraryRuntime* flr =
-        device == nullptr ? nullptr : ctx.func_lib(device);                   //BTBT 从EagCtx中获取flr.该flr是创建EagCtx时创建pflr时创建的(见eager_fn.txt).普通op也有FunctionLibraryRuntime?是干嘛的???
-    if (device != nullptr && flr == nullptr) {
+        device == nullptr ? nullptr : ctx.func_lib(device); //BT算子 BT自定函 BT设备 从EagCtx.pflr_的ProcessFunctionLibraryRuntime::flr_map_中获取flr.该flr是创建EagCtx时创建pflr时创建的(见eager_fn.txt).flr_map_中不同的device对应不同的FunctionLibraryRuntime
+    if (device != nullptr && flr == nullptr) {//BT??? ctx.pflr_和ProcessFunctionLibraryRuntime::flr_map_是如何设置的
       return errors::NotFound(
           "Unable to find a FunctionLibraryRuntime corresponding to device ",
           device->name());
     }
-    auto runner = (flr != nullptr && flr->runner() != nullptr) ? flr->runner()//BTBT 从 FunctionLibraryRuntime 获取 Executor::Args::Runner ??? 这是干嘛的?
+    auto runner = (flr != nullptr && flr->runner() != nullptr) ? flr->runner()//BT算子 BT自定函 从 FunctionLibraryRuntime 获取 Executor::Args::Runner ??? 这是干嘛的? 如何设置的
                                                                : ctx.runner();
     GraphCollector* graph_collector = nullptr;
     if (ctx.ShouldStoreGraphs()) {
