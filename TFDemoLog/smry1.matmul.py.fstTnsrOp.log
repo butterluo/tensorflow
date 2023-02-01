@@ -199,8 +199,7 @@ tensorflow::ConvertToEagerTensorUncached(ctx, valFromPy, DataType, device_name) 
         'ctx = op->EagerContext()'>'call_op(ctx.CreateOperation())'>'call_op->Reset(fname.c_str(), op->DeviceName().c_str())'通过op得到EagerContext并新建一个EagerOperation,把EagerOperation的名字Reset()为fname,
           //BT算子 BT自定函 新建的call_op以fname为名字,会使它无法在OpRegistry中找到,进而变成一个is_function_=true的func op
         新建op赋值给wrapped_op并用原op的input和attr对其进行初始化后返回
-      :1192
-      :1208 BT算子 BT自定函 //BT??? ctx.pflr_和ProcessFunctionLibraryRuntime::flr_map_是如何设置的  //BT算子 BT自定函 从 FunctionLibraryRuntime 获取 Executor::Args::Runner ??? 这是干嘛的? 如何设置的 TODO
+      :1192 core/common_runtime/eager/execute.cc::1208 BT算子 BT自定函 //BT??? ctx.pflr_和ProcessFunctionLibraryRuntime::flr_map_是如何设置的  //BT算子 BT自定函 从 FunctionLibraryRuntime 获取 Executor::Args::Runner ??? 这是干嘛的? 如何设置的 TODO
       'if (run_function_with_flr)'
         // Treat the function as multi_device only when we are not compiling
         // it wholly with XLA. When compiling wholly with XLA, flr->CreateKernel
