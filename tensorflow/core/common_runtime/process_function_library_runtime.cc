@@ -96,7 +96,7 @@ ProcessFunctionLibraryRuntime::ProcessFunctionLibraryRuntime(
     DistributedFunctionLibraryRuntime* parent,
     const SessionMetadata* session_metadata,
     Rendezvous::Factory rendezvous_factory)
-    : parent_(parent),//BT算子 BT自定函 BT分布式 c_api.cc.TFE_NewContext()中cluster_flr=null,但却调'eager_context->SetDistributedManager(' ???
+    : parent_(parent),//BT算子 BT自定函 BT分布式 c/eager/c_api.cc.TFE_NewContext()中cluster_flr=null,但却调'eager_context->SetDistributedManager(' ???
       env_(env),
       config_(config ? absl::make_optional(*config) : absl::nullopt),
       device_mgr_(device_mgr),
@@ -109,7 +109,7 @@ ProcessFunctionLibraryRuntime::ProcessFunctionLibraryRuntime(
       rendezvous_factory_(std::move(rendezvous_factory)),
       optimizer_options_(optimizer_options),
       graph_def_version_(graph_def_version) {
-  if (device_mgr == nullptr) {//BT设备 BT自定函 device_mgr非null,在c_api.cc.TFE_NewContext()中创建<'new tensorflow::DynamicDeviceMgr(std::move(devices)))'
+  if (device_mgr == nullptr) {//BT设备 BT自定函 device_mgr非null,c/eager/c_api.cc.TFE_NewContext()中创建<'new tensorflow::DynamicDeviceMgr(std::move(devices)))'
     (*flr_map_)[nullptr] = NewFunctionLibraryRuntime(
         nullptr, env, config_ ? &(*config_) : nullptr, nullptr,
         graph_def_version, lib_def_, default_thread_pool, optimizer_options,

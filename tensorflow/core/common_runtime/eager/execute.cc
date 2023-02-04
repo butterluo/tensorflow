@@ -1190,7 +1190,7 @@ Status GetOrCreateKernelAndDevice(
     const NodeDef& ndef = op->MutableAttrs()->BuildNodeDef();
 
     FunctionLibraryRuntime* flr =
-        device == nullptr ? nullptr : ctx.func_lib(device); //BT算子 BT自定函 BT设备 从EagCtx.pflr_的ProcessFunctionLibraryRuntime::flr_map_中获取flr.该flr是创建EagCtx时创建pflr时创建的(见eager_fn.txt).flr_map_中不同的device对应不同的FunctionLibraryRuntime
+        device == nullptr ? nullptr : ctx.func_lib(device); //BT算子 BT自定函 BT设备 从EagCtx.pflr_的ProcessFunctionLibraryRuntime::flr_map_中获取flr.该flr是创建EagCtx时创建pflr时创建的(见eager_fn.txt).flr_map_中不同的device对应不同的FunctionLibraryRuntime // Returns the function library runtime for the given device.
     if (device != nullptr && flr == nullptr) {//BT??? ctx.pflr_和ProcessFunctionLibraryRuntime::flr_map_是如何设置的
       return errors::NotFound(
           "Unable to find a FunctionLibraryRuntime corresponding to device ",
