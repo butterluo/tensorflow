@@ -791,7 +791,7 @@ ProcessFunctionLibraryRuntime::OptimizeFunctionGraph(
   }
 
   Device* default_device = nullptr;
-  if (options.default_device_to_target && !options.target.empty()) {
+  if (options.default_device_to_target && !options.target.empty()) {//BT算子 BT自定函 options.target 就是 KernelAndDevice.device_,在 KernelAndDeviceFunc::InstantiateFunc()设置
     // Make the `target` device the default device if nothing else is hard
     // coded. This allows the same function definition to be specialized to
     // different devices depending on the `PartitionedCallOp` device.
@@ -816,21 +816,21 @@ ProcessFunctionLibraryRuntime::OptimizeFunctionGraph(
     }
   }
 
-  TF_RETURN_IF_ERROR(
+  TF_RETURN_IF_ERROR(//BT算子 BT自定函 貌似只对 DT_RESOURCE 的arg作处理???
       SetArgShape(options.input_resource_dtypes_and_shapes, arg_nodes));
   TF_RETURN_IF_ERROR(PinArgsAndRets(
       options.input_devices, options.output_devices, *dev_set, arg_nodes,
       ret_nodes, lib_def_,
-      options.config_proto.allow_soft_placement() ? default_device : nullptr));
+      options.config_proto.allow_soft_placement() ? default_device : nullptr));//BT算子 BT图 主要是为了设置Node.set_assigned_device_name(device_name),其实input/output的device在进入该函数前就已经知道,简单地按照input/output的index进行配置即可,(但output可以直接用input的device的情况会复杂些,有必要时需深究该情况???)
 
   // The runtime shouldn't depend on duplication between the function library
   // owned by the graph and the one owned by the runtime. To ensure this, for
   // now we ensure that the graph function library is empty and the runtime
   // library receives the query from LookUps on the graph function library.
   graph->mutable_flib_def()->set_default_registry(&reachable_lib_def);
-  graph->mutable_flib_def()->Clear();
+  graph->mutable_flib_def()->Clear();//BT自定函 FunctionLibraryDefinition.Clear() framework/function.h:460 function.cc:1516 // Removes all the functions and gradient functions.
 
-  // Do not run function/graph optimization passes for component functions,
+  // Do not run function/graph optimization passes for component functions, //BT自定函 component functions 是什么?为何包含 main func？啥时候处理main func的?
   // since they have already processed the main function.
   const bool should_run_optimization_passes = !options.is_component_function;
   if (!should_run_optimization_passes) {
