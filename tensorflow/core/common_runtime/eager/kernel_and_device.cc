@@ -149,7 +149,7 @@ Status KernelAndDeviceFunc::InstantiateFunc(const bool log_device_placement,
                        ->GetFunctionLibraryDefinition()
                        ->Find(ndef.op());
   } else {
-    function_def = flr_->GetFunctionLibraryDefinition()->Find(ndef.op());
+    function_def = flr_->GetFunctionLibraryDefinition()->Find(ndef.op());//BT自定函 tensorflow/core/common_runtime/function.cc:363 FunctionLibraryRuntimeImpl::GetFunctionLibraryDefinition() 返回的base_lib_def_指向EagerContext.func_lib_def_
   }
 
   if (function_def != nullptr) {
@@ -166,7 +166,7 @@ Status KernelAndDeviceFunc::InstantiateFunc(const bool log_device_placement,
   for (const Device* device : input_devices_) {
     options.input_devices.push_back(device->name());
   }
-  options.composite_devices = composite_devices_;
+  options.composite_devices = composite_devices_;//BT算子 创建KernelAndDeviceFunc时传入composite_devices_
   options.input_resource_dtypes_and_shapes = input_resource_dtypes_and_shapes_;
   if (outputs_on_op_device_) {
     const FunctionLibraryDefinition* lib_def =
@@ -180,7 +180,7 @@ Status KernelAndDeviceFunc::InstantiateFunc(const bool log_device_placement,
     }
   }
 
-  const auto& it = ndef.attr().find("executor_type");
+  const auto& it = ndef.attr().find("executor_type");//BT图 ??? 这些是如何，何时，何地被设置到该ndef中的
   if (it != ndef.attr().end()) {
     options.executor_type = it->second.s();
   }
@@ -200,7 +200,7 @@ Status KernelAndDeviceFunc::InstantiateFunc(const bool log_device_placement,
     grappler::GrapplerItem::OptimizationOptions optimization_options =
         grappler::CreateOptOptionsForEager();
 
-    options.optimize_graph_fn = std::bind(
+    options.optimize_graph_fn = std::bind(//BTCPP BT图优化 ??? 这是什么用法?起什么作用?
         grappler::OptimizeGraph, std::placeholders::_1, std::placeholders::_2,
         std::placeholders::_3, std::placeholders::_4, std::placeholders::_5,
         options.config_proto, function_def->signature().name(),
@@ -237,7 +237,7 @@ Status KernelAndDeviceFunc::InstantiateFunc(const bool log_device_placement,
   }
 
   TF_RETURN_IF_ERROR(
-      pflr_->Instantiate(ndef.op(), AttrSlice(ndef), options, &handle_));
+      pflr_->Instantiate(ndef.op(), AttrSlice(ndef), options, &handle_));//BT算子 //BT自定函 用上面构建的options<>进行啥???
   return pflr_->IsCrossProcess(handle_, &is_cross_process_);
 }
 

@@ -222,7 +222,7 @@ void ProcessFunctionLibraryRuntime::InitializeDeviceAndFlr() {
   //    remote devices from cluster's remote_device_mgr as RemoteDevice type.
   // 2) Include local devices from the local device_mgr_.
   // In both scenarios, no device is added more than one times.
-  mutex_lock l(mu_);
+  mutex_lock l(mu_);//BTCPP BT线程安全
   device_set_ = std::make_shared<DeviceSet>();//BTCPP share_ptr的用法
   if (parent_ != nullptr && parent_->remote_device_mgr() != nullptr) {//BT分布式 local场景时parent_是null,不走此
     for (auto d : parent_->remote_device_mgr()->ListDevices()) {
@@ -237,12 +237,12 @@ void ProcessFunctionLibraryRuntime::InitializeDeviceAndFlr() {
     }
   } else {
     for (auto d : device_mgr_->ListDevices()) {
-      device_set_->AddDevice(d);//BT设备 ??? DeviceSet貌似有按device优先级排序功能
+      device_set_->AddDevice(d);//BT设备 把device_mgr_中所有设备放入DeviceSet ??? DeviceSet有按优先级排序功能? 是否包括分布式的设备?
     }
   }
 
   // Update flr_map_ by adding new devices
-  for (Device* d : device_mgr_->ListDevices()) {
+  for (Device* d : device_mgr_->ListDevices()) {//BT自定函 device_mgr_的每个deivce为k，对应的FunctioinLibraryRuntime为v，保存在flr_map_中
     if ((*flr_map_)[d] == nullptr) {
       (*flr_map_)[d] = NewFunctionLibraryRuntime(//BT自定函 core\common_runtime\function.cc:1416
           device_mgr_, env_, config_ ? &(*config_) : nullptr, d,
@@ -779,7 +779,7 @@ ProcessFunctionLibraryRuntime::OptimizeFunctionGraph(
 
   TF_RETURN_IF_ERROR(GetGraphAndArgRets(
       function_name, attrs, fdef, lib_def, &graph, &arg_nodes, &ret_nodes,
-      &ret_node_names, &ret_types, &control_ret_node_names));
+      &ret_node_names, &ret_types, &control_ret_node_names));//BT算子 BT自定函 BT图 把自定义函数FunctionDef转成Graph
 
   GraphDef graph_def;
   graph->ToGraphDef(&graph_def);
@@ -787,7 +787,7 @@ ProcessFunctionLibraryRuntime::OptimizeFunctionGraph(
       lib_def->ReachableDefinitions(graph_def);
   *graph_def.mutable_library() = reachable_lib_def.ToProto();
   if (options.graph_collector != nullptr) {
-    options.graph_collector->CollectRawGraph(graph_def);
+    options.graph_collector->CollectRawGraph(graph_def);//BT图 ???这里Graph再转成GraphDef貌似只是为了做记录?graph_collector->CollectRawGraph(graph_def)有什么用呢?
   }
 
   Device* default_device = nullptr;

@@ -1286,7 +1286,7 @@ Status FunctionLibraryDefinition::AddFunctionDefHelper(
     const FunctionDef& fdef, const StackTracesMap& stack_traces, bool* added) {
   *added = false;
   std::shared_ptr<FunctionDefAndOpRegistration>& entry =
-      function_defs_[fdef.signature().name()];
+      function_defs_[fdef.signature().name()];//BT自定含 tensorflow/core/framework/function.h:608 FunctionLibraryDefinition.function_defs_
   if (entry) {
     if (!FunctionDefsEqual(entry->fdef, fdef)) {
       return errors::InvalidArgument(

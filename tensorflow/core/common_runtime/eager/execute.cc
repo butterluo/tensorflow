@@ -1196,9 +1196,9 @@ Status GetOrCreateKernelAndDevice(
           "Unable to find a FunctionLibraryRuntime corresponding to device ",
           device->name());
     }
-    auto runner = (flr != nullptr && flr->runner() != nullptr) ? flr->runner()//BT算子 BT自定函 从 FunctionLibraryRuntime 获取 Executor::Args::Runner ??? 这是干嘛的? 如何设置的
+    auto runner = (flr != nullptr && flr->runner() != nullptr) ? flr->runner()//BT算子 BT自定函 获取FunctionLibraryRuntimeImpl.default_runner_ 见<tf_note/自定义函数/初始化>中的解释
                                                                : ctx.runner();
-    GraphCollector* graph_collector = nullptr;
+    GraphCollector* graph_collector = nullptr;//BT图 TODO
     if (ctx.ShouldStoreGraphs()) {
       graph_collector = ctx.GetGraphCollector();
     }
@@ -1213,7 +1213,7 @@ Status GetOrCreateKernelAndDevice(
       // boundary.
       VLOG(2) << "Running " << ndef.op() << " using multi-device function. "
               << "Full node_def=" << ndef.DebugString();
-      std::function<int64_t()> get_op_id = nullptr;
+      std::function<int64_t()> get_op_id = nullptr;//BTCPP 函数变量声明
 #if !defined(IS_MOBILE_PLATFORM)
       get_op_id = [&ctx]() { return ctx.RemoteMgr()->NextOpId(); };
 #endif  // IS_MOBILE_PLATFORM
@@ -1223,7 +1223,7 @@ Status GetOrCreateKernelAndDevice(
       auto rendezvous_creator = ctx.RendezvousCreator();
       ctx.SetReuseRendezvousForFunctions(
           reuse_rendezvous_for_functions_original_value);
-      ctx.reuse_rendezvous_for_functions_mu()->unlock();//BT线程安全
+      ctx.reuse_rendezvous_for_functions_mu()->unlock();//BTCPP BT线程安全
       kernel.reset(new KernelAndDeviceFunc(
           flr, ctx.pflr(), std::move(input_device_ptrs),
           std::move(composite_devices),

@@ -475,7 +475,7 @@ FunctionLibraryRuntimeImpl::FunctionLibraryRuntimeImpl(
       env_(env),
       config_(config),
       graph_def_version_(graph_def_version),
-      base_lib_def_(lib_def),
+      base_lib_def_(lib_def),//BT自定函 来自EagerContext自己创建的func_lib_def_
       optimizer_(optimizer_options),
       session_metadata_(session_metadata),
       default_runner_(nullptr),
@@ -488,7 +488,7 @@ FunctionLibraryRuntimeImpl::FunctionLibraryRuntimeImpl(
       function_handle_cache_(std::make_unique<FunctionHandleCache>(this)),
       parent_(parent) {
   get_func_sig_ = [this](const string& op, const OpDef** sig) {
-    return base_lib_def_->LookUpOpDef(op, sig);
+    return base_lib_def_->LookUpOpDef(op, sig);//BT自定函 将EagerContext.func_lib_def_用于查找FunctionDef.signature<OpDef>
   };
   create_kernel_ = [this](const std::shared_ptr<const NodeProperties>& props,
                           OpKernel** kernel) {
@@ -496,10 +496,10 @@ FunctionLibraryRuntimeImpl::FunctionLibraryRuntimeImpl(
   };
   thread::ThreadPool* pool = nullptr;
   if (device_ != nullptr) {
-    pool = device_->tensorflow_device_thread_pool();//BT设备 BT多线程 ??? device_->tensorflow_device_thread_pool()是啥?哪里设的?
+    pool = device_->tensorflow_device_thread_pool();//BT设备 BT多线程 BaseDevice::tensorflow_device_thread_pool()只有gpu_device.cc设置了，其它返回都是null
   }
   if (pool == nullptr) {
-    pool = default_thread_pool;//BT多线程 ???
+    pool = default_thread_pool;//BT多线程 来自EagerContext的构造函数中'thread_pool_(NewThreadPoolFromSessionOptions(opts))'
   }
   if (pool != nullptr) {
     default_runner_ = [pool](Executor::Args::Closure c) {//BT多线程 ??? pool最终是啥?Executor::Args::Closure是啥?

@@ -39,14 +39,14 @@ class ThreadPoolDeviceFactory : public DeviceFactory {
                        std::vector<std::unique_ptr<Device>>* devices) override {
     int num_numa_nodes = port::NUMANumNodes();
     int n = 1;
-    auto iter = options.config.device_count().find("CPU");
+    auto iter = options.config.device_count().find("CPU");//BT设备 ??? CPU个数从哪里配进去的?还是自动得到的？
     if (iter != options.config.device_count().end()) {
       n = iter->second;
     }
     for (int i = 0; i < n; i++) {
       string name = strings::StrCat(name_prefix, "/device:CPU:", i);
       std::unique_ptr<ThreadPoolDevice> tpd;
-      if (options.config.experimental().use_numa_affinity()) {
+      if (options.config.experimental().use_numa_affinity()) {//BT设备 可设置numa亲和策略 TODO
         int numa_node = i % num_numa_nodes;
         if (numa_node != i) {
           LOG(INFO) << "Only " << num_numa_nodes

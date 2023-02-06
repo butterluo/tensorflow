@@ -954,7 +954,7 @@ Status EagerContext::AddFunctionDef(const FunctionDef& fdef,
       registered_function->cached_kernel_keys =
           std::make_unique<std::vector<Fprint128>>();
       gtl::InsertOrUpdate(&registered_functions_, fdef.signature().name(),
-                          registered_function);
+                          registered_function);//BT缓存 BT自定函 BT线程安全 ??? 好像只是作为一个线程安全的cacheKey作用?保存signature与registered_functions_的关系有什么用?
     } else {
       // The function has been registered before. If the function is the same,
       // then we take a Ref() otherwise we error out.
