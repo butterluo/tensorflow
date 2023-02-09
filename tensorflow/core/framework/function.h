@@ -384,7 +384,7 @@ using StackTracesMap =
 class FunctionLibraryDefinition : public OpRegistryInterface {
  public:
   // Ops created for function arguments bear the name given by `kArgOp`; those
-  // created for return values bear the name given by `kRetOp`.
+  // created for return values bear the name given by `kRetOp`.//BT自定函 BT图 Op结尾的都是 tensorflow/core/ops/function_ops.cc 中定义的用于func的内置op
   static constexpr const char* const kArgOp = "_Arg";
   static constexpr const char* const kDeviceArgOp = "_DeviceArg";
   static constexpr const char* const kRetOp = "_Retval";

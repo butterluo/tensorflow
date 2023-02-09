@@ -485,7 +485,7 @@ void SetAttrValue(const AttrValue& value, AttrValue* out) { *out = value; }
 #define DEFINE_SET_ATTR_VALUE_BOTH(ARG_TYPE, FIELD) \
   DEFINE_SET_ATTR_VALUE_ONE(ARG_TYPE, FIELD)        \
   DEFINE_SET_ATTR_VALUE_LIST(gtl::ArraySlice<ARG_TYPE>, FIELD)
-
+//BTCPP BT图 以下是用宏生成不同的 SetAttrValue 函数
 DEFINE_SET_ATTR_VALUE_ONE(const string&, s)
 DEFINE_SET_ATTR_VALUE_LIST(gtl::ArraySlice<string>, s)
 DEFINE_SET_ATTR_VALUE_BOTH(const char*, s)

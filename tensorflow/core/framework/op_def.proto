@@ -29,20 +29,20 @@ message OpDef {
     // Human readable description.
     string description = 2;
 
-    // Describes the type of one or more tensors that are accepted/produced
-    // by this input/output arg.  The only legal combinations are:
-    // * For a single tensor: either the "type" field is set or the
-    //   "type_attr" field is set to the name of an attr with type "type".
+    // Describes the type of one or more tensors that are accepted/produced   这里的type/type_attr/number_attr/type_list_attr其实都是描述某个input/output arg的数据类型。
+    // by this input/output arg.  The only legal combinations are:            只是这些字段除了type具体指定了某个数据类型外,其他都是一个name,指向该OpDef.attr字段,在attr中有相同名字的那个attr就是相应的类型的详细说明. 当然OpDef.attr只是定义描述,具体的值保存在相应的NodeDef的attr属性中.
+    // * For a single tensor: either the "type" field is set or the           
+    //   "type_attr" field is set to the name of an this.attr with type "type".
     // * For a sequence of tensors with the same type: the "number_attr"
-    //   field will be set to the name of an attr with type "int", and
+    //   field will be set to the name of an this.attr with type "int", and
     //   either the "type" or "type_attr" field will be set as for
     //   single tensors.
     // * For a sequence of tensors, the "type_list_attr" field will be set
-    //   to the name of an attr with type "list(type)".
+    //   to the name of an this.attr with type "list(type)".
     DataType type = 3;
-    string type_attr = 4;    // if specified, attr must have type "type"
-    string number_attr = 5;  // if specified, attr must have type "int"
-    // If specified, attr must have type "list(type)", and none of
+    string type_attr = 4;    // if specified, this.attr must have type "type"
+    string number_attr = 5;  // if specified, this.attr must have type "int"
+    // If specified, this.attr must have type "list(type)", and none of
     // type, type_attr, and number_attr may be specified.
     string type_list_attr = 6;
 
@@ -77,7 +77,7 @@ message OpDef {
   repeated string control_output = 20;
 
   // Description of the graph-construction-time configuration of this
-  // Op.  That is to say, this describes the attr fields that will
+  // Op.  That is to say, this describes the attr fields that will     在个attr只是个定义描述,具体的值保存在相应的NodeDef的attr属性中.
   // be specified in the NodeDef.
   message AttrDef {
     // A descriptive name for the argument.  May be used, e.g. by the

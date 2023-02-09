@@ -1005,7 +1005,7 @@ Status Partition(const PartitionOptions& opts, Graph* g,
   // For a node dst, 'ref_recvs' remembers the recvs introduced by a ref
   // edge to dst. 'ref_control_inputs' remembers the inputs by a non-ref
   // edge to dst. We will add a control edge for every pair in
-  // (ref_recvs x ref_control_inputs).
+  // (ref_recvs x ref_control_inputs).//BT图 ??? 不懂 ref edge 和 non-ref edge 有何不同? 引用类型和值类型的区别?
   std::vector<NodeDef*> ref_recvs;
   std::vector<string> ref_control_inputs;
 

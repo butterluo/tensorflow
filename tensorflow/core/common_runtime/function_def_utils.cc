@@ -33,7 +33,7 @@ Status FunctionDefToBodyHelper(
     std::unique_ptr<FunctionBody>* fbody) {
   // Instantiates the function template into a graph def.
   InstantiationResult result;
-  TF_RETURN_IF_ERROR(InstantiateFunction(fdef, attrs, get_func_sig, &result));
+  TF_RETURN_IF_ERROR(InstantiateFunction(fdef, attrs, get_func_sig, &result));//BT图 BT自定函 这里会把func转成多个nodes，后面的ConvertNodeDefsToGraph()把这些nodes组装成grh
 
   auto graph = std::make_unique<Graph>(lib_def);
 
@@ -50,7 +50,7 @@ Status FunctionDefToBodyHelper(
   GraphConstructorOptions opts;
   opts.allow_internal_ops = true;
   opts.expect_device_spec = false;
-  TF_RETURN_IF_ERROR(ConvertNodeDefsToGraph(opts, result.nodes, graph.get()));
+  TF_RETURN_IF_ERROR(ConvertNodeDefsToGraph(opts, result.nodes, graph.get()));//BT图 BT自定函 关键是上面 InstantiateFunction() 从 func 中抽取出来了所有 node,这里只是把node组装成grh
 
   const StackTracesMap& stack_traces =
       lib_def->GetStackTraces(fdef.signature().name());

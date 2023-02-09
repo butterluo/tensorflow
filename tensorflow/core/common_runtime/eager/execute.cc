@@ -1187,7 +1187,7 @@ Status GetOrCreateKernelAndDevice(
                                 true);
       }
     }
-    const NodeDef& ndef = op->MutableAttrs()->BuildNodeDef();
+    const NodeDef& ndef = op->MutableAttrs()->BuildNodeDef();//BT算子 这个NodeDef是个dummy,用于携带设进 EagerOperation 中的attr，以及相应OpDef中的attr.default_value(如果EagerOperation相应的attr没被设值的话)...貌似在传入kernel->Init()前都只是用于打印
 
     FunctionLibraryRuntime* flr =
         device == nullptr ? nullptr : ctx.func_lib(device); //BT算子 BT自定函 BT设备 从EagCtx.pflr_的ProcessFunctionLibraryRuntime::flr_map_中获取flr.该flr是创建EagCtx时创建pflr时创建的(见eager_fn.txt).flr_map_中不同的device对应不同的FunctionLibraryRuntime // Returns the function library runtime for the given device.
@@ -1238,7 +1238,7 @@ Status GetOrCreateKernelAndDevice(
               << ". Full node_def=" << ndef.DebugString();
       kernel.reset(new KernelAndDeviceOp(                       //BTBT 如下'kernel->Init'>KernelAndDeviceOp::Init->'flr_->CreateKernel'->core/com_rt/function.cc.FunctionLibraryRuntimeImpl::CreateKernel->executor.cc.CreateNonCachedKernel->op_kernel.cc.CreateOpKernel从注册了kernel的registry中拿到factory去create kernel
           ctx.GetRendezvous(), ctx.LogMemory(), flr, runner,
-          ctx.GetCollectiveExecutorHandle(), ctx.HostCPU()));
+          ctx.GetCollectiveExecutorHandle(), ctx.HostCPU()));//BT算子 KernelAndDeviceOp构造函数只是简单地把传入的参数保存到自己属性中,更多的工作在KernelAndDeviceOp.Init()中做
     }
 
     TF_RETURN_IF_ERROR(

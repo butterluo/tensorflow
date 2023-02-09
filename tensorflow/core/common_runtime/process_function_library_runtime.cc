@@ -761,8 +761,8 @@ ProcessFunctionLibraryRuntime::OptimizeFunctionGraph(
     const FunctionLibraryRuntime::InstantiateOptions& options,
     const std::shared_ptr<DeviceSet>& dev_set) {
   const FunctionLibraryDefinition* lib_def =
-      options.lib_def == nullptr ? lib_def_ : options.lib_def;
-
+      options.lib_def == nullptr ? lib_def_ : options.lib_def;//如果没传FunctionLibraryDefinition进来,就用ProcessFunctionLibraryRuntime自己的
+//根据签名找到 FunctionDef.需要在调该函数前就把此FunctionDef加入到lib_def<FunctionLibraryDefinition>中,否则下面会报错
   const FunctionDef* fdef = lib_def->Find(function_name);
   if (fdef == nullptr) {
     return errors::InvalidArgument("Failed to find function \"", function_name,
@@ -776,7 +776,7 @@ ProcessFunctionLibraryRuntime::OptimizeFunctionGraph(
   std::vector<string> ret_node_names;
   DataTypeVector ret_types;
   std::vector<string> control_ret_node_names;
-
+//将FunctionDef转成 Graph,并为了下面的优化准备好该Graph
   TF_RETURN_IF_ERROR(GetGraphAndArgRets(
       function_name, attrs, fdef, lib_def, &graph, &arg_nodes, &ret_nodes,
       &ret_node_names, &ret_types, &control_ret_node_names));//BT算子 BT自定函 BT图 把自定义函数FunctionDef转成Graph
@@ -820,8 +820,8 @@ ProcessFunctionLibraryRuntime::OptimizeFunctionGraph(
       SetArgShape(options.input_resource_dtypes_and_shapes, arg_nodes));
   TF_RETURN_IF_ERROR(PinArgsAndRets(
       options.input_devices, options.output_devices, *dev_set, arg_nodes,
-      ret_nodes, lib_def_,
-      options.config_proto.allow_soft_placement() ? default_device : nullptr));//BT算子 BT图 主要是为了设置Node.set_assigned_device_name(device_name),其实input/output的device在进入该函数前就已经知道,简单地按照input/output的index进行配置即可,(但output可以直接用input的device的情况会复杂些,有必要时需深究该情况???)
+      ret_nodes, lib_def_,//BT算子 BT图 PinArgsAndRets主要是为了设置Node.set_assigned_device_name(device_name),其实input/output的device在进入该函数前就已经知道,简单地按照input/output的index进行配置即可,(但output可以直接用input的device的情况会复杂些,有必要时需深究该情况???)
+      options.config_proto.allow_soft_placement() ? default_device : nullptr));
 
   // The runtime shouldn't depend on duplication between the function library
   // owned by the graph and the one owned by the runtime. To ensure this, for
@@ -838,18 +838,18 @@ ProcessFunctionLibraryRuntime::OptimizeFunctionGraph(
                "component function "
             << function_name;
   }
-
+//Graph为了优化做好准备后，下面就是做一系列//BT图优
   // Mapping from a function body node name to the control output name.
-  std::unordered_map<string, string> node_name_to_control_ret;
-
+  std::unordered_map<string, string> node_name_to_control_ret;//BT控制流 TODO 
+//BT图优 针对grh中的func node进行优化
   bool control_rets_updated = false;
   if (should_run_optimization_passes) {
-    TF_RETURN_IF_ERROR(FunctionOptimizationPassRegistry::Global().Run(
-        *dev_set, options.config_proto, &graph, &reachable_lib_def,
+    TF_RETURN_IF_ERROR(FunctionOptimizationPassRegistry::Global().Run(//BT图优 通过‘function_optimization_registration::FunctionOptimizationPassRegistration’进行相关pass注册
+        *dev_set, options.config_proto, &graph, &reachable_lib_def,//可参考 core/common_runtime/function_optimization_registry.h
         &control_ret_node_names, &control_rets_updated));
   }
 
-  if (control_rets_updated) {
+  if (control_rets_updated) {//BT控制流 TODO ???其实不确定是不是控制流相关
     // Function graph pass may have resulted in different nodes/node names for
     // control rets.
     for (const auto& control_ret : control_ret_node_names) {
@@ -869,7 +869,7 @@ ProcessFunctionLibraryRuntime::OptimizeFunctionGraph(
   optimization_options.session_options = &session_options;
   optimization_options.graph = &graph;
   optimization_options.flib_def = &reachable_lib_def;
-  optimization_options.device_set = dev_set.get();
+  optimization_options.device_set = dev_set.get();//dev_set是构造本pflr时在ProcessFunctionLibraryRuntime::InitializeDeviceAndFlr()基于EagerContext.local_device_manager_中所有device设置的
   optimization_options.is_function_graph = true;
   std::vector<CompositeDevice*> composite_devices;
   {
@@ -881,13 +881,13 @@ ProcessFunctionLibraryRuntime::OptimizeFunctionGraph(
   optimization_options.function_def = fdef;
   optimization_options.shape_inference_on_tfe_dialect_import =
       options.shape_inference_on_tfe_dialect_import;
-
+//BT图优
   DumpGraph("Before running PRE_PLACEMENT passes", graph.get());
   if (should_run_optimization_passes) {
     TF_RETURN_IF_ERROR(OptimizationPassRegistry::Global()->RunGrouping(
         OptimizationPassRegistry::PRE_PLACEMENT, optimization_options));
   }
-
+//BT图优
   // TODO(b/124993244): Smartly merge options in nested defuns, and raise
   // exceptions/warnings in case where nested function call options are ignored.
   DumpGraph("Before calling Placer", graph.get());
@@ -896,7 +896,7 @@ ProcessFunctionLibraryRuntime::OptimizeFunctionGraph(
                 options.config_proto.allow_soft_placement(),
                 options.config_proto.log_device_placement());
   TF_RETURN_IF_ERROR(placer.Run());
-
+//BT图优
   DumpGraph("Before running POST_PLACEMENT passes", graph.get());
   if (should_run_optimization_passes) {
     TF_RETURN_IF_ERROR(OptimizationPassRegistry::Global()->RunGrouping(
@@ -905,8 +905,8 @@ ProcessFunctionLibraryRuntime::OptimizeFunctionGraph(
 
   Device* cpu_device;
   TF_RETURN_IF_ERROR(device_mgr_->LookupDevice("CPU:0", &cpu_device));
-
-  if (options.optimize_graph_fn) {
+//BT图优 用grappler做图优化
+  if (options.optimize_graph_fn) {//BT图优 options.optimize_graph_fn在 core/common_runtime/eager/kernel_and_device.cc:194 中的代码块若判断func def含config_proto则被设为用于优化的 OptimizeGraph()
     DumpGraph("Before running graph optimization fn", graph.get());
     Status status = options.optimize_graph_fn(
         std::move(ret_node_names), std::move(control_ret_node_names),
@@ -917,14 +917,14 @@ ProcessFunctionLibraryRuntime::OptimizeFunctionGraph(
     }
     DumpGraph("After optimization", graph.get());
   }
-
+//BT图优 
   DumpGraph("Before running POST_REWRITE_FOR_EXEC passes", graph.get());
   if (should_run_optimization_passes) {
     TF_RETURN_IF_ERROR(OptimizationPassRegistry::Global()->RunGrouping(
         OptimizationPassRegistry::POST_REWRITE_FOR_EXEC, optimization_options));
   }
 
-  graph->mutable_flib_def()->set_default_registry(nullptr);
+  graph->mutable_flib_def()->set_default_registry(nullptr);//BT图 ??? 在上面:830 set_default_registry(&reachable_lib_de),这里又把它清掉,为何要这样?真正调用时不需要?只是优化时需要?
   graph->mutable_flib_def()->Clear();
   return OptimizedFunctionGraphInfo{
       std::move(graph), std::move(reachable_lib_def), node_name_to_control_ret,
@@ -970,20 +970,20 @@ Status ProcessFunctionLibraryRuntime::InstantiateMultiDevice(
       OptimizeFunctionGraph(function_name, attrs, options, dev_set));
 
   auto& graph = optimized_graph_info.graph;
-  graph->mutable_flib_def()->set_default_registry(
+  graph->mutable_flib_def()->set_default_registry(//BT自定函 BT图优 在中用'set_default_registry(nullptr)'清空,这里有塞回来,是何故??? 只是为了函数间解耦与职责分明?
       &(optimized_graph_info.lib_def));
 
   // Expand the nodes assigned to a CompositeDevice before graph partition to
   // avoid generating a subgraph on a virtual device for execution.
   // This transformation should happen as late as possible, in order to run as
   // more graph optimization passes (e.g. PRE_PLACEMENT, PLACER,
-  // POST_PLACEMENT, POST_REWRITE_FOR_EXEC) on a smaller graph as possible.
+  // POST_PLACEMENT, POST_REWRITE_FOR_EXEC) on a smaller graph as possible.//BT图优 BT分布式 ??? 没看懂该注释说什么,暂且跳过 TODO
   TF_RETURN_IF_ERROR(ReplicatePerReplicaNodesInFunctionGraph(
       options.composite_devices, graph.get()));
 
   const FunctionLibraryDefinition* lib_def =
       options.lib_def == nullptr ? lib_def_ : options.lib_def;
-  if (options.graph_collector != nullptr) {
+  if (options.graph_collector != nullptr) {//BT图 ??? graph_collector 是干嘛的?
     GraphDef def;
     graph->ToGraphDef(&def);
     *def.mutable_library() = lib_def->ReachableDefinitions(def).ToProto();
@@ -994,7 +994,7 @@ Status ProcessFunctionLibraryRuntime::InstantiateMultiDevice(
   VLOG(4) << DebugString(graph->ToGraphDefDebug());
 
   std::unordered_map<string, std::unique_ptr<Graph>> subgraphs;
-  TF_RETURN_IF_ERROR(
+  TF_RETURN_IF_ERROR(//BT图 core/common_runtime/partitioning_utils.cc:118
       PartitionFunctionGraph(*dev_set, std::move(graph), &subgraphs));
 
   for (const auto& pair : subgraphs) {

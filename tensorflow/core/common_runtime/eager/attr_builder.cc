@@ -104,7 +104,7 @@ Status AttrTypeMapForOp(const char* op_name, const AttrTypeMap** out,
     if (is_list) {
       type = type.substr(5, type.length() - 6);
     }
-    uint32 t = is_list ? kIsList : 0;
+    uint32 t = is_list ? kIsList : 0;//BTCPP BT性能
     if (type == "string") {
       t |= TF_ATTR_STRING;
     } else if (type == "int") {
@@ -235,7 +235,7 @@ void AttrBuilder::FillAttrValueMapWithoutDefaults(AttrValueMap* m) const {
 
 void AttrBuilder::AddAttrIfNotPresent(StringPiece attr_name,
                                       const AttrValue& value) {
-  encoded_attrs_.emplace(string(attr_name), value.SerializeAsString());
+  encoded_attrs_.emplace(string(attr_name), value.SerializeAsString());//BT性能 看AttrBuilder注释
 }
 
 const NodeDef& AttrBuilder::BuildNodeDef() {

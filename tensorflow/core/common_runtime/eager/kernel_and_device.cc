@@ -199,8 +199,8 @@ Status KernelAndDeviceFunc::InstantiateFunc(const bool log_device_placement,
     }
     grappler::GrapplerItem::OptimizationOptions optimization_options =
         grappler::CreateOptOptionsForEager();
-
-    options.optimize_graph_fn = std::bind(//BTCPP BT图优化 ??? 这是什么用法?起什么作用?
+//BT图优 options.optimize_graph_fn 在后续调OptimizeFunctionGraph()时会被用于对func def转成的grh进行优化,见 core/common_runtime/process_function_library_runtime.cc:909。???不知其它地方会否用到
+    options.optimize_graph_fn = std::bind(//BTCPP std::bind的作用
         grappler::OptimizeGraph, std::placeholders::_1, std::placeholders::_2,
         std::placeholders::_3, std::placeholders::_4, std::placeholders::_5,
         options.config_proto, function_def->signature().name(),

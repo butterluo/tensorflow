@@ -69,16 +69,16 @@ namespace tensorflow {
 // false, and *dtypes is set to a single element vector, whose only
 // element is T.
 Status ArgNumType(AttrSlice attrs, const OpDef::ArgDef& arg_def,
-                  bool* is_type_list, DataTypeVector* dtypes) {
+                  bool* is_type_list, DataTypeVector* dtypes) {//BT自定函 BT图 输入的 attrs 是什么? 从那里来?
   dtypes->clear();
-  if (!arg_def.type_list_attr().empty()) {
-    const AttrValue* v = attrs.FindByString(arg_def.type_list_attr());
+  if (!arg_def.type_list_attr().empty()) {//BT图 见 tensorflow/core/framework/op_def.proto中OpDef.ArgDef.type 和 type_list_attr 的注释
+    const AttrValue* v = attrs.FindByString(arg_def.type_list_attr());//AttrValue 定义在 tensorflow/core/framework/attr_value.proto，且此时arg_def.type_list_attr的值指向对应的attrVal,即通过这里的FindByString能找到
     if (v == nullptr) {
       return errors::NotFound("type list attr not found: ",
                               arg_def.type_list_attr());
     }
     *is_type_list = true;
-    for (int i = 0; i < v->list().type_size(); ++i) {
+    for (int i = 0; i < v->list().type_size(); ++i) {//此时attrVal是一个list,参考attr_value.proto. 里面每个元素的类型都可能不一样,所以都要放入dtypes中
       dtypes->push_back(v->list().type(i));
     }
     return OkStatus();
@@ -86,25 +86,25 @@ Status ArgNumType(AttrSlice attrs, const OpDef::ArgDef& arg_def,
 
   *is_type_list = false;
   int num = 1;
-  if (!arg_def.number_attr().empty()) {
-    const AttrValue* v = attrs.FindByString(arg_def.number_attr());
+  if (!arg_def.number_attr().empty()) {//BT图 见 op_def.proto中OpDef.ArgDef.type 和 number_attr 的注释
+    const AttrValue* v = attrs.FindByString(arg_def.number_attr());//AttrValue 定义在 tensorflow/core/framework/attr_value.proto，且此时arg_def.number_attr的值指向对应的attrVal,即通过这里的FindByString能找到
     if (v == nullptr) {
       return errors::NotFound("number attr not found: ", arg_def.number_attr());
     }
-    num = v->i();
+    num = v->i();//此时attrVal是一个int,参考attr_value.proto
   }
 
   DataType dtype;
-  if (arg_def.type() != DT_INVALID) {
+  if (arg_def.type() != DT_INVALID) {//BT图 见 op_def.proto中OpDef.ArgDef.type 和 type_attr 的注释
     dtype = arg_def.type();
   } else if (arg_def.type_attr().empty()) {
     dtype = DT_INVALID;
-  } else {
-    const AttrValue* v = attrs.FindByString(arg_def.type_attr());
+  } else {//BT图 见 op_def.proto中OpDef.ArgDef.type 和 type_attr 的注释
+    const AttrValue* v = attrs.FindByString(arg_def.type_attr());//此时arg_def.type_attr的值指向对应的attrVal,即通过这里的FindByString能找到
     if (v == nullptr) {
       return errors::NotFound("type attr not found: ", arg_def.type_attr());
     }
-    dtype = v->type();
+    dtype = v->type();//此时attrVal是一个type,参考attr_value.proto
   }
   dtypes->resize(num, dtype);
   return OkStatus();
@@ -188,7 +188,7 @@ class FunctionInstantiationHelper {
     TF_RETURN_IF_ERROR(
         AddItem(arg_def.name(), {true, arg_index, 0, is_type_list, dtypes}));
     // Creates dtypes.size() nodes in the graph.
-    for (size_t i = 0; i < dtypes.size(); ++i) {
+    for (size_t i = 0; i < dtypes.size(); ++i) {//BT自定函 BT图 如果该input arg由多个val组成，则每个input val转换成一个node
       TF_RETURN_IF_ERROR(AddItem(strings::StrCat(arg_def.name(), ":", i),
                                  {true, arg_index, 0, false, {dtypes[i]}}));
       if (arg_index != result_.nodes.size()) {
@@ -198,13 +198,13 @@ class FunctionInstantiationHelper {
       }
       string name = arg_def.name();
       if (dtypes.size() > 1) {
-        strings::StrAppend(&name, "_", i);
+        strings::StrAppend(&name, "_", i);//BT自定函 BT图 如果该input arg由多个val组成，则在input name 后面加上val 的 idx作区分
       }
       NodeDef* gnode = AddNode(name);
       if (ints_on_device && dtypes[i] == DataType::DT_INT32) {
-        gnode->set_op(FunctionLibraryDefinition::kDeviceArgOp);
+        gnode->set_op(FunctionLibraryDefinition::kDeviceArgOp);//BT自定函 BT图 tensorflow/core/ops/function_ops.cc 中定义的用于func的内置op：_DeviceArg 代表放在设备上的input,详见注释
       } else {
-        gnode->set_op(FunctionLibraryDefinition::kArgOp);
+        gnode->set_op(FunctionLibraryDefinition::kArgOp);//BT自定函 BT图 kArgOp就是"_Arg",是在 tensorflow/core/ops/function_ops.cc 中定义的用于func的内置op,代表input,详见注释
       }
       DataType dtype = arg_def.is_ref() ? MakeRefType(dtypes[i]) : dtypes[i];
       AddAttr("T", dtype, gnode);
@@ -466,7 +466,7 @@ class FunctionInstantiationHelper {
       return strings::StrCat(Name(node_index), ":", output_index);
     }
   }
-
+  // BTBT 以name为名字新建node并加入result_.nodes最后。同时新建一个对应的NodeInfo到nodes_最后
   NodeDef* AddNode(const string& name) {
     result_.nodes.emplace_back();
     NodeDef* gnode = &result_.nodes.back();
@@ -736,7 +736,7 @@ Status AddDefaultAttrs(const string& op,
 
 Status InstantiateFunction(const FunctionDef& fdef, AttrSlice attr_values,
                            GetFunctionSignature get_function,
-                           InstantiationResult* result) {
+                           InstantiationResult* result) {//BT自定函 BT图 负责把 func 转成 nodes
   if (VLOG_IS_ON(5)) {
     const auto& signature = fdef.signature();
     VLOG(5) << "Instantiate function definition: name=" << signature.name()
@@ -765,8 +765,8 @@ Status InstantiateFunction(const FunctionDef& fdef, AttrSlice attr_values,
     const OpDef::ArgDef& arg_def = sig.input_arg(i);
     auto it = fdef.arg_attr().find(i);
     const FunctionDef::ArgAttrs* arg_attrs =
-        it != fdef.arg_attr().end() ? &it->second : nullptr;
-    auto resource_id_it = fdef.resource_arg_unique_id().find(i);
+        it != fdef.arg_attr().end() ? &it->second : nullptr;//BT自定函 BT图 ??? funcDef的arg_attr只是其sig的input_arg的对应的attr? output的attr呢?是没有的么?
+    auto resource_id_it = fdef.resource_arg_unique_id().find(i);//BT自定函 BT图 看function.proto的注释,这貌似用于解决参数别名的问题的 ??? 但注释中 resource argument 的概念是什么意思? 而_Arg nodes又是什么?
     int64_t resource_arg_unique_id =
         resource_id_it != fdef.resource_arg_unique_id().end()
             ? resource_id_it->second
