@@ -660,9 +660,9 @@ Status ValidateOp(EagerOperation* op) {
 // inner op via a placeholder. This allows additional verification.
 Status BuildWrappedOpSignature(EagerOperation* op, const OpDef& opdef,
                                const string& fname, OpDef& signature) {
-  signature = opdef;
-  signature.clear_input_arg();
-  signature.clear_output_arg();
+  signature = opdef;//BT自定函 BT算子 注册的原op整个复制过去,下面还清空了input和output,但其它字段没清空而保留原op的
+  signature.clear_input_arg();//为什么要情况input&output呢,因为func_def.signature中的相关字段与相应的原OpDef是有所改变的,
+  signature.clear_output_arg();//如何改变的逻辑在本函数的注释,以及下面代码中.比如,input/output arg的名字就需要 GetFlatName/EscapeOrigName 对原name进行处理
   signature.set_name(fname);
   auto op_attrs = op->GetOpAttrs();
   auto FillSignatureArgs = [op_attrs, op](
@@ -799,7 +799,7 @@ inline void GetMKLNodeDef(NodeDef* ndef) {
 }
 #endif  // INTEL_MKL
 
-Status WrapInCallOp(EagerOperation* op, EagerOperation** wrapped_op) {
+Status WrapInCallOp(EagerOperation* op, EagerOperation** wrapped_op) {//BT自定函 BT算子 基于EagerOperation生成FunctionDef并注册到EagerContext中.再基于该FunctionDef生成新的EagOp作为wrapped_op取代原来的EagOp
   DCHECK(!op->is_function());
   const OpDef& opdef = OpRegistry::Global()->LookUp(op->Name())->op_def;
   // Raise an error for ops which don't support wrapping yet. This includes
@@ -823,7 +823,7 @@ Status WrapInCallOp(EagerOperation* op, EagerOperation** wrapped_op) {
     FunctionDef fdef;
     // Set signature.
     TF_RETURN_IF_ERROR(
-        BuildWrappedOpSignature(op, opdef, fname, *fdef.mutable_signature()));
+        BuildWrappedOpSignature(op, opdef, fname, *fdef.mutable_signature()));//BT算子 BT自定函 基于EagerOperation和原OpDef转成funcDef.signature.但并没用到EagOp中attr的实际值,只是用它来对type_list_attr/number_attr的input/output arg进行展开成若干个对应arg
     // Add node.
     NodeDef* ndef = fdef.add_node_def();
     ndef->set_op(op->Name());
@@ -837,7 +837,7 @@ Status WrapInCallOp(EagerOperation* op, EagerOperation** wrapped_op) {
     // attrs to this ndef. That would require updating fname to contain a hash
     // of such attributes.
     for (const auto& attr : opdef.attr()) {
-      (*ndef->mutable_attr())[attr.name()].set_placeholder(attr.name());
+      (*ndef->mutable_attr())[attr.name()].set_placeholder(attr.name());//BT自定函 BT算子 ??? op转func时,所有attr都变成FunctionDef.node_def的 placeholder attr?
     }
     // Set the device of this node to be the exact same one that eager mode
     // would have used.
@@ -854,13 +854,13 @@ Status WrapInCallOp(EagerOperation* op, EagerOperation** wrapped_op) {
 
     // Set `ret` map.
     TF_RETURN_IF_ERROR(
-        PopulateRetMap(&fdef, op_attrs, op, opdef, signature, ndef->name()));
+        PopulateRetMap(&fdef, op_attrs, op, opdef, signature, ndef->name()));{//BT自定函 BT算子 funcDef.ret从funcDef.signature的output转过来
     VLOG(1) << fdef.DebugString();
-    TF_RETURN_IF_ERROR(op->EagerContext().AddFunctionDef(std::move(fdef)));
+    TF_RETURN_IF_ERROR(op->EagerContext().AddFunctionDef(std::move(fdef)));//BT自定函 BT算子 新建的FunctionDef注册到EagCtx.func_lib_def_.function_defs_中
   }
   // Build the call op.
   auto& ctx = op->EagerContext();
-  AbstractOperationPtr call_op(ctx.CreateOperation());
+  AbstractOperationPtr call_op(ctx.CreateOperation());//基于原eagOp和新的funcDef新建一个eagOp代替原来那个,它的is_function=true
   TF_RETURN_IF_ERROR(call_op->Reset(fname.c_str(), op->DeviceName().c_str()));//BT算子 BT自定函 新建的call_op以fname为名字,会使它无法在OpRegistry中找到,进而变成一个is_function_=true的fn op
   for (auto t : op->Inputs()) {
     TF_RETURN_IF_ERROR(call_op->AddInput(t));

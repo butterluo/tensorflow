@@ -771,7 +771,7 @@ class Graph {
   // GraphDef versions
   const std::unique_ptr<VersionDef> versions_;
 
-  // Allocator which will give us good locality.
+  // Allocator which will give us good locality.//BT性能 BT多线程 BT缓存
   core::Arena arena_;
 
   // Map from node ids to allocated nodes.  nodes_[id] may be nullptr if

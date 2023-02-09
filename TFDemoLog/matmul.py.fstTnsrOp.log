@@ -2109,8 +2109,6 @@ ret {
         tensorflow::ConvertToEagerTensorUncached(TFE_Context*, _object*, tensorflow::DataType, char const*)
         tensorflow::ConvertToEagerTensor(TFE_Context*, _object*, tensorflow::DataType, char const*)
         EagerTensor_init
-*** End stack trace ***
-
 2023-01-12 09:34:38.595849: I tensorflow/core/framework/op.cc:80] NOT_FOUND: Op type not registered '__wrapped____EagerConst_device_/job:localhost/replica:0/task:0/device:CPU:0' in binary running on docker-desktop. Make sure the Op and Kernel are registered in the binary running in this process. Note that if you are loading a saved graph which used ops from tf.contrib, accessing (e.g.) `tf.contrib.resampler` should be done before importing the graph, as contrib ops are lazily registered when the module is first accessed.
 2023-01-12 09:34:38.716170: I tensorflow/tsl/platform/status.cc:176] Generated non-OK status: "NOT_FOUND: Op type not registered '__wrapped____EagerConst_device_/job:localhost/replica:0/task:0/device:CPU:0' in binary running on docker-desktop. Make sure the Op and Kernel are registered in the binary running in this process. Note that if you are loading a saved graph which used ops from tf.contrib, accessing (e.g.) `tf.contrib.resampler` should be done before importing the graph, as contrib ops are lazily registered when the module is first accessed.". *** Begin stack trace ***
 
@@ -2133,8 +2131,6 @@ ret {
         tensorflow::ConvertToEagerTensorUncached(TFE_Context*, _object*, tensorflow::DataType, char const*)
         tensorflow::ConvertToEagerTensor(TFE_Context*, _object*, tensorflow::DataType, char const*)
         EagerTensor_init
-*** End stack trace ***
-
 2023-01-12 09:34:38.716311: I tensorflow/core/framework/op.cc:80] NOT_FOUND: Op type not registered '__wrapped____EagerConst_device_/job:localhost/replica:0/task:0/device:CPU:0' in binary running on docker-desktop. Make sure the Op and Kernel are registered in the binary running in this process. Note that if you are loading a saved graph which used ops from tf.contrib, accessing (e.g.) `tf.contrib.resampler` should be done before importing the graph, as contrib ops are lazily registered when the module is first accessed.
 2023-01-12 09:34:38.805936: I tensorflow/tsl/platform/status.cc:176] Generated non-OK status: "NOT_FOUND: Op type not registered '__wrapped____EagerConst_device_/job:localhost/replica:0/task:0/device:CPU:0' in binary running on docker-desktop. Make sure the Op and Kernel are registered in the binary running in this process. Note that if you are loading a saved graph which used ops from tf.contrib, accessing (e.g.) `tf.contrib.resampler` should be done before importing the graph, as contrib ops are lazily registered when the module is first accessed.". *** Begin stack trace ***
 

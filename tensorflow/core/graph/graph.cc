@@ -500,7 +500,7 @@ Node* Graph::AddNode(NodeDef node_def, Status* status) {
   DataTypeVector inputs;
   DataTypeVector outputs;
   status->Update(
-      InOutTypesForNode(node_def, op_reg_data->op_def, &inputs, &outputs));
+      InOutTypesForNode(node_def, op_reg_data->op_def, &inputs, &outputs));//BT算子 BT图 从opDef的in/out arg中获取type相关attr,然后从ndeDef中获取相应是什么type的值,保持在inputs/outputs中
   if (!status->ok()) {
     *status = AttachDef(*status, node_def);
     return nullptr;
@@ -579,7 +579,7 @@ void Graph::RemoveNode(Node* node) {
   node->out_edges_.clear();
   ReleaseNode(node);
 }
-
+// Adds an edge that connects the xth output of `source` to the yth input of // `dest` and returns it.
 const Edge* Graph::AddEdge(Node* source, int x, Node* dest, int y) {
   TF_DCHECK_OK(IsValidNode(source)) << source->DebugString();
   TF_DCHECK_OK(IsValidNode(dest)) << dest->DebugString();
@@ -869,17 +869,17 @@ Status Graph::IsValidInputTensor(const Node* node, int idx) const {
 Node* Graph::AllocateNode(std::shared_ptr<NodeProperties> props,
                           const Node* cost_node, Node::NodeClass node_class) {
   Node* node = nullptr;
-  if (free_nodes_.empty()) {
-    node = new (arena_.Alloc(sizeof(Node))) Node;  // placement new
+  if (free_nodes_.empty()) {//BTBT ??? 这个free是什么意思?
+    node = new (arena_.Alloc(sizeof(Node))) Node;  // placement new //BTCPP ??? 什么用法
   } else {
-    node = free_nodes_.back();
+    node = free_nodes_.back();                                    //BT性能 BT缓存 free_nodes时通过Graph::ReleaseNode()回收的可复用的Node集合,因为Node的大小都一样
     free_nodes_.pop_back();
   }
   node->graph_ = this;
   const int id = nodes_.size();
   int cost_id = cost_node ? cost_node->cost_id() : id;
   node->Initialize(id, cost_id, std::move(props), node_class);
-  nodes_.push_back(node);
+  nodes_.push_back(node);                                         //BT图 nodes_是在使用的node集合
   ++num_nodes_;
   return node;
 }

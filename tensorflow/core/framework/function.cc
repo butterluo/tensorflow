@@ -186,7 +186,7 @@ class FunctionInstantiationHelper {
     }
     int arg_index = result_.nodes.size();
     TF_RETURN_IF_ERROR(
-        AddItem(arg_def.name(), {true, arg_index, 0, is_type_list, dtypes}));
+        AddItem(arg_def.name(), {true, arg_index, 0, is_type_list, dtypes}));// Adds an item into the input name index.
     // Creates dtypes.size() nodes in the graph.
     for (size_t i = 0; i < dtypes.size(); ++i) {//BT自定函 BT图 如果该input arg由多个val组成，则每个input val转换成一个node
       TF_RETURN_IF_ERROR(AddItem(strings::StrCat(arg_def.name(), ":", i),
@@ -202,9 +202,9 @@ class FunctionInstantiationHelper {
       }
       NodeDef* gnode = AddNode(name);
       if (ints_on_device && dtypes[i] == DataType::DT_INT32) {
-        gnode->set_op(FunctionLibraryDefinition::kDeviceArgOp);//BT自定函 BT图 tensorflow/core/ops/function_ops.cc 中定义的用于func的内置op：_DeviceArg 代表放在设备上的input,详见注释
+        gnode->set_op(FunctionLibraryDefinition::kDeviceArgOp);//BT自定函 BT图 core/ops/function_ops.cc 中定义的用于func的内置op：_DeviceArg 代表放在设备上的input,详见注释
       } else {
-        gnode->set_op(FunctionLibraryDefinition::kArgOp);//BT自定函 BT图 kArgOp就是"_Arg",是在 tensorflow/core/ops/function_ops.cc 中定义的用于func的内置op,代表input,详见注释
+        gnode->set_op(FunctionLibraryDefinition::kArgOp);//BT自定函 BT图 kArgOp就是"_Arg",是在 core/ops/function_ops.cc 中定义的用于func的内置op,代表input,详见注释
       }
       DataType dtype = arg_def.is_ref() ? MakeRefType(dtypes[i]) : dtypes[i];
       AddAttr("T", dtype, gnode);
@@ -771,9 +771,9 @@ Status InstantiateFunction(const FunctionDef& fdef, AttrSlice attr_values,
         resource_id_it != fdef.resource_arg_unique_id().end()
             ? resource_id_it->second
             : -1LL;
-    s = helper.BuildInputArgIndex(arg_def, attr_values, arg_attrs,
-                                  ints_on_device, resource_arg_unique_id);
-
+    s = helper.BuildInputArgIndex(arg_def, attr_values, arg_attrs,//BT自定函 BT图 将FuncDef.signature.input_arg转成相应的NdeDef.对于type_list_attr/number_attr的arg会被转成多个相应的Node
+                                  ints_on_device, resource_arg_unique_id);//func的arg对应的node有两种：FunctionLibraryDefinition::kArgOp和kDeviceArgOp分别对应core/ops/function_ops.cc 中定义的用于func的内置op："_Arg"和"_DeviceArg",
+                                                                  //"_Arg"和"_DeviceArg"有自己的attr,这些attr在BuildInputArgIndex()中会基于attr_values中的实际值被赋值
     if (!s.ok()) {
       errors::AppendToMessage(&s, "In ", Print(arg_def));
       return s;
@@ -782,12 +782,12 @@ Status InstantiateFunction(const FunctionDef& fdef, AttrSlice attr_values,
 
   auto substitute = [attr_values, &sig](const string& name, AttrValue* val) {
     // Look for a specified value...
-    if (const AttrValue* v = attr_values.FindByString(name)) {
+    if (const AttrValue* v = attr_values.FindByString(name)) {//BT算子 BT自定函 attr_values是由EagerOperation收集的与OpDef相关的attr当前实际值与OpDef中的默认值(如果没有设实际值)组成的,所以可用于取代func_def.node_def.attr中的placeholder值
       *val = *v;
       return true;
     }
     // .. and if not, then check for a default value.
-    if (const OpDef::AttrDef* attr = FindAttr(name, sig)) {
+    if (const OpDef::AttrDef* attr = FindAttr(name, sig)) {//BT算子 BT自定函 func_def.signature是该func的op表示,OpDef.attr中有各attr的default_value
       if (attr->has_default_value()) {
         *val = attr->default_value();
         return true;
@@ -803,18 +803,18 @@ Status InstantiateFunction(const FunctionDef& fdef, AttrSlice attr_values,
   node_attrs.resize(fdef.node_def_size());
   for (int i = 0; i < fdef.node_def_size(); ++i) {
     for (auto attr : fdef.node_def(i).attr()) {
-      if (!SubstitutePlaceholders(substitute, &attr.second)) {
-        return errors::InvalidArgument("Failed to bind all placeholders in ",
+      if (!SubstitutePlaceholders(substitute, &attr.second)) {//BT图 BT自定函 找到 func_def.node_def中val为placeholder的attr,用上面定义的substitute闭包函数计算出的值取代placeholder
+        return errors::InvalidArgument("Failed to bind all placeholders in ",//funcDef.nde_def的所有attr应该都是placeholder，否则SubstitutePlaceholders()返回false并报错 ??? 为何要这样
                                        SummarizeAttrValue(attr.second));
       }
-      if (!node_attrs[i].insert(attr).second) {
+      if (!node_attrs[i].insert(attr).second) {//处理过的func_def.node_def.attr作为KeyValuePair加入node_attrs[i]
         return errors::Internal("Somehow duplicated: ", attr.first);
       }
     }
-    TF_RETURN_IF_ERROR(
-        AddDefaultAttrs(fdef.node_def(i).op(), get_function, &node_attrs[i]));
+    TF_RETURN_IF_ERROR(//BT图 BT自定函 对于funcDef.nde_def中没有,但对应的OpDef中有且有默认值的attr,作为KeyValuePair加入到node_attrs[i].其Value是默认值
+        AddDefaultAttrs(fdef.node_def(i).op(), get_function, &node_attrs[i]));//注意,在eager场景'fdef.node_def(i).op()'并不是转成funcDef后的signature,而是转func前的原op的名字
   }
-
+  //BT图 BT自定函 至此.func_def中所有node_def.attr都已经填上实际值
   for (int i = 0; i < fdef.node_def_size(); ++i) {
     s = helper.BuildNodeOutputIndex(fdef.node_def(i), AttrSlice(&node_attrs[i]),
                                     result->nodes.size() + i);

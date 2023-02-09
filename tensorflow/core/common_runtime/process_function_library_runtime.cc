@@ -763,7 +763,7 @@ ProcessFunctionLibraryRuntime::OptimizeFunctionGraph(
   const FunctionLibraryDefinition* lib_def =
       options.lib_def == nullptr ? lib_def_ : options.lib_def;//如果没传FunctionLibraryDefinition进来,就用ProcessFunctionLibraryRuntime自己的
 //根据签名找到 FunctionDef.需要在调该函数前就把此FunctionDef加入到lib_def<FunctionLibraryDefinition>中,否则下面会报错
-  const FunctionDef* fdef = lib_def->Find(function_name);
+  const FunctionDef* fdef = lib_def->Find(function_name);//BT自定函 BT算子 找到execute.cc.WrapInCallOp()中基于eagOp新建的funcDef
   if (fdef == nullptr) {
     return errors::InvalidArgument("Failed to find function \"", function_name,
                                    "\" in function library: ", lib_def);
