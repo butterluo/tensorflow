@@ -21,7 +21,7 @@ message FunctionDefLibrary {
 
 // A function can be instantiated when the runtime can bind every attr     eager模式下EagerOperation如何转成FunctionDef,参考: core/common_runtime/eager/execute.cc.WrapInCallOp()
 // with a value. When a GraphDef has a call to a function, it must         FunctionDef如何转成图的多个节点,参考: core/framework/function.cc.InstantiateFunction()及其对FunctionInstantiationHelper各函数的调用
-// have binding for every attr defined in the signature.
+// have binding for every attr defined in the signature.                   ??? 关于OpDef.ArgDef中有number_attr/type_list_attr在func,node等的相关处理尚未完全清晰
 //
 // TODO(zhifengc):
 //   * device spec, etc.

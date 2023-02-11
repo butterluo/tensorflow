@@ -799,7 +799,7 @@ inline void GetMKLNodeDef(NodeDef* ndef) {
 }
 #endif  // INTEL_MKL
 
-Status WrapInCallOp(EagerOperation* op, EagerOperation** wrapped_op) {//BT自定函 BT算子 基于EagerOperation生成FunctionDef并注册到EagerContext中.再基于该FunctionDef生成新的EagOp作为wrapped_op取代原来的EagOp
+Status WrapInCallOp(EagerOperation* op, EagerOperation** wrapped_op) { //BT自定函 BT算子 基于EagerOperation生成FunctionDef并注册到EagerContext中.再基于该FunctionDef生成新的EagOp作为wrapped_op取代原来的EagOp
   DCHECK(!op->is_function());
   const OpDef& opdef = OpRegistry::Global()->LookUp(op->Name())->op_def;
   // Raise an error for ops which don't support wrapping yet. This includes
@@ -854,7 +854,7 @@ Status WrapInCallOp(EagerOperation* op, EagerOperation** wrapped_op) {//BT自定
 
     // Set `ret` map.
     TF_RETURN_IF_ERROR(
-        PopulateRetMap(&fdef, op_attrs, op, opdef, signature, ndef->name()));{//BT自定函 BT算子 funcDef.ret从funcDef.signature的output转过来
+        PopulateRetMap(&fdef, op_attrs, op, opdef, signature, ndef->name()));//BT自定函 BT算子 funcDef.ret从funcDef.signature的output转过来
     VLOG(1) << fdef.DebugString();
     TF_RETURN_IF_ERROR(op->EagerContext().AddFunctionDef(std::move(fdef)));//BT自定函 BT算子 新建的FunctionDef注册到EagCtx.func_lib_def_.function_defs_中
   }
