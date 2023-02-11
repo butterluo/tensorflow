@@ -33,7 +33,7 @@ Status FunctionDefToBodyHelper(
     std::unique_ptr<FunctionBody>* fbody) {
   // Instantiates the function template into a graph def.
   InstantiationResult result;
-  TF_RETURN_IF_ERROR(InstantiateFunction(fdef, attrs, get_func_sig, &result));//BT图 BT自定函 这里会把func转成多个nodes，后面的ConvertNodeDefsToGraph()把这些nodes组装成grh
+  TF_RETURN_IF_ERROR(InstantiateFunction(fdef, attrs, get_func_sig, &result));//BT图 BT自定函 这里会把func转成多个nodes，后面的ConvertNodeDefsToGraph()把这些nodes组装成grh. core/framework/function.cc:739
 
   auto graph = std::make_unique<Graph>(lib_def);
 
@@ -64,7 +64,7 @@ Status FunctionDefToBodyHelper(
   }
 
   // Call BuildControlFlowInfo to validate that this function body has
-  // well-formed control flow.
+  // well-formed control flow.//BT图 ??? 没看懂有啥检查作用?可能有特殊Node时才起作用吧
   std::vector<ControlFlowInfo> dummy;
   TF_RETURN_IF_ERROR(BuildControlFlowInfo(graph.get(), &dummy));
 

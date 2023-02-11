@@ -795,7 +795,7 @@ void Graph::ToGraphDefSubRange(GraphDef* graph_def, int from_node_id) const {
         inputs[edge->dst_input()] = edge;
       }
     }
-    // Sort the control inputs for more predictable serialization.
+    // Sort the control inputs for more predictable serialization.//BT性能
     std::sort(inputs.begin() + node->num_inputs(), inputs.end(),
               [](const Edge* a, const Edge* b) -> bool {
                 return a->src()->name() < b->src()->name();

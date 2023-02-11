@@ -185,23 +185,23 @@ class GraphConstructor {
 
   virtual ~GraphConstructor() {}
 
-  Status TryImport() {
+  Status TryImport() {//BTALG BT图 把输入的nodes变成图,内有遍历图相关的算法
     TF_RETURN_IF_ERROR(EnsureNoNameCollisions());
     TF_RETURN_IF_ERROR(ValidateInputMapAndControlDependencies());
-    TF_RETURN_IF_ERROR(BuildNodeIndex());
-    TF_RETURN_IF_ERROR(InitFromEdges());
+    TF_RETURN_IF_ERROR(BuildNodeIndex());// Validate the node names and add them to gdef_nodes_ and gdef_prefixes_.将node的部分信息插入gdef_nodes_供后续使用,后续的一些逻辑需要基于这些信息是否完善的判断来进行.node name 若有prefix也插入 gdef_prefixes_
+    TF_RETURN_IF_ERROR(InitFromEdges());//初始化 pending_count_,outputs_，ready_,分别保存各node为处理的input数,各node出度的nodes的idx,input都处理完可进入下一步处理的node.这些数据结构主要供下一步Convert()中把nodes转成Graph用.
 
     // NOTE: Convert() invokes `consume_node_def()` on each node in the input
     // graph, so `get_node_def()` is no longer usable once it is called.
-    TF_RETURN_IF_ERROR(Convert());
+    TF_RETURN_IF_ERROR(Convert());//把nodes转成Graph
 
     TF_RETURN_IF_ERROR(AddBackEdges());
     TF_RETURN_IF_ERROR(UpdateVersionDef());
     TF_RETURN_IF_ERROR(PopulateReturnTensors());
     TF_RETURN_IF_ERROR(PopulateReturnNodes());
     TF_RETURN_IF_ERROR(PopulateMissingUnusedInputMapKeys());
-    UpdateUniquifiedColocationNames();
-    FixupSourceAndSinkEdges(g_);
+    UpdateUniquifiedColocationNames();//BTTODO BT性能 处理attr有kColocationAttrName也就是"_class"的Node,没看 
+    FixupSourceAndSinkEdges(g_);// Connect all nodes with no incoming edges to source. // Connect all nodes with no outgoing edges to sink. 注意,使用ctrl edge连接的
     return OkStatus();
   }
 
@@ -358,7 +358,7 @@ class GraphConstructor {
   struct InputInfo {
     explicit InputInfo(const string& node_name, Node* n, int i)
         : name(node_name), node(n), index(i) {}
-    // Use string instead of StringPiece so we don't have to manage lifetime
+    // Use string instead of StringPiece so we don't have to manage lifetime //BTCPP ??? string 和 StringPiece 有什么不同?使用场景?
     string name;
     Node* node;
     int index;
@@ -524,7 +524,7 @@ Status MaybeAppendVersionWarning(const VersionDef* versions,
   }
   return s;
 }
-
+//BT图 如果处理完的Node(processed)的一些出度Node的所有输入Node都已处理完,则这些processed node的出度node会被加入到ready_,且对应pending_count_的位置会为0
 void GraphConstructor::UpdatePendingCountAndReady(int processed,
                                                   bool is_next_iteration) {
   for (size_t i = 0; i < outputs_[processed].size(); ++i) {
@@ -535,7 +535,7 @@ void GraphConstructor::UpdatePendingCountAndReady(int processed,
         is_next_iteration && merge_node_indices_.count(output) == 1;
     if (!is_next_iteration_to_merge_edge) {
       int* current_pending_count = &pending_count_[output];
-      CHECK_GT(*current_pending_count, 0);
+      CHECK_GT(*current_pending_count, 0);//如果val1不大于val2则打印日志,并不是抛异常
       (*current_pending_count)--;
       if (*current_pending_count == 0) {
         ready_.insert(output);
@@ -665,7 +665,7 @@ Status GraphConstructor::BuildNodeIndex() {
     if (IsMerge(node_def)) {
       merge_node_indices_.insert(n);
     }
-    // Validate control edges at end
+    // Validate control edges at end 只是检查node的ctrl edge是不是统一排在了所有edge的后面
     bool in_control_dependence = false;
     for (int i = 0; i < node_def.input_size(); ++i) {
       StringPiece input_name = node_def.input(i);
@@ -725,16 +725,16 @@ Status GraphConstructor::InitFromEdges() {
     for (int i = 0; i < node_def.input_size(); ++i) {
       StringPiece input_name = node_def.input(i);
       TensorId id(ParseTensorName(input_name));
-      if (opts_.input_map.count(id) == 0) {
+      if (opts_.input_map.count(id) == 0) {//若没传入input_map则此也为true
         // If an input is not mapped, then the input should appear in the graph
         // being imported.
-        auto iter = gdef_nodes_.find(id.first);
+        auto iter = gdef_nodes_.find(id.first);//由input_name转成的TensorId的first是 src_node name
         if (iter == gdef_nodes_.end()) {
           return errors::InvalidArgument("Node '", node_def.name(),
                                          "': Unknown input node '",
                                          node_def.input(i), "'");
         }
-        outputs_[iter->second.gdef_index].push_back(n);
+        outputs_[iter->second.gdef_index].push_back(n);//input到该node的src_node的gdef_index为下标,则outputs中保存了各个src_node的output的所有dest_node
       } else {
         // This input is mapped to an existing edge. Therefore this input is
         // as good as being already processed.
@@ -743,9 +743,9 @@ Status GraphConstructor::InitFromEdges() {
       }
     }
     if (pending_count == 0) {
-      ready_.insert(n);
+      ready_.insert(n);//若node无pending(没处理)的input或者无input,都会放入ready_队列
     }
-    pending_count_.push_back(pending_count);
+    pending_count_.push_back(pending_count);//pending_count_ 保存了各个node的为处理的input数
   }
   return OkStatus();
 }
@@ -771,7 +771,7 @@ Status GraphConstructor::ValidateColocationConstraints(
 Status GraphConstructor::MakeNode(NodeDef&& node_def, Node** node) {
   // Add the node to the graph.
   Status status;
-  *node = g_->AddNode(std::move(node_def), &status);
+  *node = g_->AddNode(std::move(node_def), &status);//构建并往Graph.nodes_插入Node
   if (!status.ok()) return status;
   if (opts_.expect_device_spec) {
     (*node)->set_assigned_device_name((*node)->def().device());
@@ -779,7 +779,7 @@ Status GraphConstructor::MakeNode(NodeDef&& node_def, Node** node) {
   return OkStatus();
 }
 
-Status GraphConstructor::ValidateShape(Node* node) {
+Status GraphConstructor::ValidateShape(Node* node) {//BT形状
   if (!opts_.importing || !opts_.validate_shape) return OkStatus();
   TF_RETURN_IF_ERROR(refiner_->AddNode(node));
   // For nodes with the _output_shapes attribute, override the shape.
@@ -1131,7 +1131,7 @@ Status GraphConstructor::Convert() {
   // Process the NodeDefs in topological order.
   // (InitFromEdges() sets this up by filling in ready_ with nodes that have no
   // inputs, pending_counts_ with the number of inputs for each node and
-  // outputs_ with the outputs of each node).
+  // outputs_ with the outputs of each node). 从无input或input都准备好的node开始,逐批处理每一批都是input已准备好的node(在ready_队列中),有点类似广度优先
   while (!ready_.empty()) {
     int o = *ready_.begin();
     ready_.erase(ready_.begin());
@@ -1177,17 +1177,17 @@ Status GraphConstructor::Convert() {
     DCHECK_EQ(node_def.input_size(), input_already_exists.size());
     TF_RETURN_IF_ERROR(ValidateColocationConstraints(node_def));
     for (int i = 0; i < node_def.input_size(); ++i) {
-      TensorId tensor_id = ParseTensorName(node_def.input(i));
+      TensorId tensor_id = ParseTensorName(node_def.input(i));//tensor_id仅用于承载src_node name 和 src_node output idx,没其他用途
       Node* src_node;
       int src_index;
 
       if (!input_already_exists[i]) {
         // Locate input in newly-imported nodes
-        auto iter = gdef_nodes_.find(tensor_id.node());
+        auto iter = gdef_nodes_.find(tensor_id.node());//tensor_id.node()=src_node.name
         DCHECK(iter != gdef_nodes_.end()) << tensor_id.node();
         src_node = iter->second.node;
-        src_index = tensor_id.index();
-        if (src_node == nullptr) has_data_back_edge = true;
+        src_index = tensor_id.index();//tensor_id.index()=src_node的output idx
+        if (src_node == nullptr) has_data_back_edge = true;//BT图 ??? 这什么意思?
       } else {
         // Input refers to preexistng node in graph
         auto iter = existing_nodes_.find(tensor_id.node());
@@ -1247,15 +1247,15 @@ Status GraphConstructor::Convert() {
       }
     }
 
-    TF_RETURN_IF_ERROR(MakeNode(std::move(node_def), &node));
+    TF_RETURN_IF_ERROR(MakeNode(std::move(node_def), &node));//基于node_def构建node并插入Graph.nodes_
 
     gdef_nodes_[node_name].node = node;
 
     // Remove duplicate control inputs before adding edges to the graph. It
-    // will allow us to skip expensive duplicates check in 'AddControlEdge'.
+    // will allow us to skip expensive duplicates check in 'AddControlEdge'.//BTCPP
     auto first_control = absl::c_find_if(inputs, &InputInfo::IsControlInput);
     auto first_control_copy = first_control;
-    std::sort(first_control, inputs.end(), &InputInfo::CompareName);
+    std::sort(first_control, inputs.end(), &InputInfo::CompareName);//unique的作用是收集相邻的重复元素,所以要先sort by name
     inputs.erase(
         std::unique(first_control_copy, inputs.end(), &InputInfo::IsSameName),
         inputs.end());
@@ -1269,17 +1269,17 @@ Status GraphConstructor::Convert() {
       } else if (inputs[i].index == Graph::kControlSlot) {
         g_->AddControlEdge(inputs[i].node, node, kDoNotCheckDuplicates);
       } else {
-        TF_RETURN_IF_ERROR(MakeEdge(inputs[i].node, inputs[i].index, node, i));
+        TF_RETURN_IF_ERROR(MakeEdge(inputs[i].node, inputs[i].index, node, i));//构建Edge并插入Graph.edges_
       }
     }
 
     TF_RETURN_IF_ERROR(ValidateShape(node));
 
-    // Update pending_count_ for outputs.
+    // Update pending_count_ for outputs. //BT图 这里会插入 ready_，从而继续循环 while(!ready.empty())
     UpdatePendingCountAndReady(o, node->IsNextIteration());
   }
 
-  if (processed < node_def_count()) {
+  if (processed < node_def_count()) {//BTCPP 若有环,环上的node对应的input会永远无法全部准备好,这些node就无法在UpdatePendingCountAndReady()中加入ready_队列从而无法被处理,所以会'processed < node_def_count()'
     LOG(WARNING) << "IN " << __func__ << " " << (node_def_count() - processed)
                  << " NODES IN A CYCLE";
     for (int64_t i = 0; i < node_def_count(); i++) {
@@ -1288,7 +1288,7 @@ Status GraphConstructor::Convert() {
                      << " WITH PENDING COUNT = " << pending_count_[i];
       }
     }
-    PrintCycles();
+    PrintCycles();//BT图 BTALG  ??? 看看人家是如何找环的
     return errors::InvalidArgument(node_def_count() - processed,
                                    " nodes in a cycle");
   }
@@ -1298,7 +1298,7 @@ Status GraphConstructor::Convert() {
 
 Status GraphConstructor::AddBackEdges() {
   // Add the back edges after all nodes are created.
-  for (const auto& e : back_edges_) {
+  for (const auto& e : back_edges_) {//BT图 GraphConstructor.Convert()中的has_data_back_edge和GraphConstructor.back_edges_是什么???起什么作用?
     Node* src_node = gdef_nodes_[e.src_name].node;
     if (e.src_index == Graph::kControlSlot) {
       g_->AddControlEdge(src_node, e.dst_node, kDoNotCheckDuplicates);

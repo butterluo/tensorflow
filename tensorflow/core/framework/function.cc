@@ -170,7 +170,7 @@ class FunctionInstantiationHelper {
     result_.nodes.clear();
   }
 
-  // Builds index for nodes that can be used as node's input arguments.
+  // Builds index for nodes that can be used as node's input arguments.  每个signature.input_arg会转成一个或多个node,相应地也会AddItem()插入一或多个item到this.index_中供最后AddNodeInputs()为各node加上input时用
   // `resource_arg_unique_id`: if non-negative, will be populated to the
   // "_resource_arg_unique_id" attribute of the arg node.
   Status BuildInputArgIndex(const OpDef::ArgDef& arg_def, AttrSlice attr_values,
@@ -188,9 +188,9 @@ class FunctionInstantiationHelper {
     TF_RETURN_IF_ERROR(
         AddItem(arg_def.name(), {true, arg_index, 0, is_type_list, dtypes}));// Adds an item into the input name index.
     // Creates dtypes.size() nodes in the graph.
-    for (size_t i = 0; i < dtypes.size(); ++i) {//BT自定函 BT图 如果该input arg由多个val组成，则每个input val转换成一个node
+    for (size_t i = 0; i < dtypes.size(); ++i) {//BT自定函 BT图 如果该input_arg有number_attr/type_list_attr则表示它包含了多个元素，因此每个元素转换成一个node
       TF_RETURN_IF_ERROR(AddItem(strings::StrCat(arg_def.name(), ":", i),
-                                 {true, arg_index, 0, false, {dtypes[i]}}));
+                                 {true, arg_index, 0, false, {dtypes[i]}}));//signature.input_arg.name会作为FunctionDef.node_def.input,所以这里要AddItem供最后AddNodeInputs()为各node加上input时用(参考BuildNodeOutputIndex注释)
       if (arg_index != result_.nodes.size()) {
         return errors::Internal(
             "Expected arg_index to be equal to the number of nodes in result.",
@@ -200,9 +200,9 @@ class FunctionInstantiationHelper {
       if (dtypes.size() > 1) {
         strings::StrAppend(&name, "_", i);//BT自定函 BT图 如果该input arg由多个val组成，则在input name 后面加上val 的 idx作区分
       }
-      NodeDef* gnode = AddNode(name);
+      NodeDef* gnode = AddNode(name);//AddNode在生成node并加入this.result_.nodes_的同时,也会加入this.nodes_供最后AddNodeInputs()为各node加上input时用
       if (ints_on_device && dtypes[i] == DataType::DT_INT32) {
-        gnode->set_op(FunctionLibraryDefinition::kDeviceArgOp);//BT自定函 BT图 core/ops/function_ops.cc 中定义的用于func的内置op：_DeviceArg 代表放在设备上的input,详见注释
+        gnode->set_op(FunctionLibraryDefinition::kDeviceArgOp);//BT自定函 BT图 core/ops/function_ops.cc 中定义的用于func的内置op:"_DeviceArg" 代表放在设备上的input,详见注释
       } else {
         gnode->set_op(FunctionLibraryDefinition::kArgOp);//BT自定函 BT图 kArgOp就是"_Arg",是在 core/ops/function_ops.cc 中定义的用于func的内置op,代表input,详见注释
       }
@@ -224,7 +224,7 @@ class FunctionInstantiationHelper {
   }
 
   Status BuildNodeOutputIndex(const NodeDef& node, AttrSlice attrs,
-                              const int arg_index) {
+                              const int arg_index) {//把有可能成为各个Node的input的信息(node.op.output_arg或signature.output_arg)通过AddItem()保存到this.index_
     const OpDef* node_sig = nullptr;
     TF_RETURN_IF_ERROR(get_function_(node.op(), &node_sig));
     if (node_sig->output_arg_size() == 0) {
@@ -234,31 +234,31 @@ class FunctionInstantiationHelper {
     int start = 0;
     bool is_type_list;
     DataTypeVector dtypes;
-    for (int i = 0; i < num_retval; ++i) {
-      TF_RETURN_IF_ERROR(
-          ArgNumType(attrs, node_sig->output_arg(i), &is_type_list, &dtypes));
+    for (int i = 0; i < num_retval; ++i) {//因为FunctionDef.node_def.op对应的OpDef.output_arg可能会成为其他node的input,所以要 AddItem 到this.index_供最后AddNodeInputs()为各node加上input时用
+      TF_RETURN_IF_ERROR( 
+          ArgNumType(attrs, node_sig->output_arg(i), &is_type_list, &dtypes));//根据output_arg中相关的type attr name从attrs中拿实际对应的dtype值
       // Note that we rely on the backwards-compatibility test enforcing
       // that output_arg(*).name() doesn't change here.
       const string base_name =
           strings::StrCat(node.name(), ":", node_sig->output_arg(i).name());
       TF_RETURN_IF_ERROR(
-          AddItem(base_name, {false, arg_index, start, is_type_list, dtypes}));
+          AddItem(base_name, {false, arg_index, start, is_type_list, dtypes}));//arg_index对应NameInfoItem.nid表示该item所属的node在this.nodes_中的位置; 
       for (int j = 0; j < static_cast<int>(dtypes.size()); ++j) {
         TF_RETURN_IF_ERROR(
-            AddItem(strings::StrCat(base_name, ":", j),
-                    {false, arg_index, start + j, false, {dtypes[j]}}));
+            AddItem(strings::StrCat(base_name, ":", j),//当j=0时,item也可以用只有base_name的形式,所以当item的位置处于node的输出的第一个时有两个item(一个name有序号0另一个没有)表示的都是同一个
+                    {false, arg_index, start + j, false, {dtypes[j]}}));//start对应NameInfoItem.nid表示该item在所属node的input/output中的顺序,这里是OpDef.output_arg按包含的元素展开后(type_list_attr和number_attr的arg会包含多个元素)的顺序下标
       }
       start += dtypes.size();
     }
     return OkStatus();
   }
 
-  Status InstantiateNode(const NodeDef& fnode, AttrSlice attrs) {
+  Status InstantiateNode(const NodeDef& fnode, AttrSlice attrs) {//FunctionDef.node_def转成NodeDef,
     const OpDef* fnode_sig = nullptr;
     TF_CHECK_OK(get_function_(fnode.op(), &fnode_sig));
     NodeDef* gnode = AddNode(fnode.name());
     gnode->set_op(fnode.op());
-    gnode->set_device(fnode.device());
+    gnode->set_device(fnode.device());//来自EagerOperation.device传给FunctionDef.node_def.device的值
     int gnode_idx = nodes_.size() - 1;
 
     // Input
@@ -301,10 +301,10 @@ class FunctionInstantiationHelper {
                 input_name, "[", k, "]");
           }
           if (item->is_func_arg) {
-            AddInput(gnode_idx, item->nid + k, 0);
+            AddInput(gnode_idx, item->nid + k, 0);//表示该node(gnode_idx)有一个input来自(item->nid+k)指向的在this.nodes_中的另一个node.因如果input来自的node是由signature.input/output_arg转化而成的话会转成一个或多个node(参考BuildInputArgIndex)
           } else {
-            AddInput(gnode_idx, item->nid, item->idx + k);
-          }
+            AddInput(gnode_idx, item->nid, item->idx + k);//表示该node(gnode_idx)有一个input来自item->nid指向的在this.nodes_中的另一个node.因如果input来自另一个FunctionDef.node_def.op.output_arg的话,则只对应一个src_node(item->nid指向的那个)但会有一或多个output(item->idx + k就是这些output的下标)(参考BuildInputArgIndex)
+          }//AddInput 和 AddDep 只是在this.nodes_相应的node idx上加上input来自哪个node的那个output的索引,并没实际加上input或ctrl dep,而在最后AddNodeInputs时才统一加上
         }
       }
     }
@@ -361,7 +361,7 @@ class FunctionInstantiationHelper {
       const OpDef::ArgDef& ret_def, AttrSlice attrs,
       const ::tensorflow::protobuf::Map<string, string>& ret_map,
       bool ints_on_device, int* ret_index) {
-    auto ret_iter = ret_map.find(ret_def.name());
+    auto ret_iter = ret_map.find(ret_def.name());//ret_map是FunctionDef.ret,参考function.proto注释
     if (ret_iter == ret_map.end()) {
       return errors::InvalidArgument("Return ", ret_def.name(), " missing.");
     }
@@ -387,11 +387,11 @@ class FunctionInstantiationHelper {
       }
       NodeDef* gnode = AddNode(name);
       if (ints_on_device && dtypes[i] == DataType::DT_INT32) {
-        gnode->set_op(FunctionLibraryDefinition::kDeviceRetOp);
+        gnode->set_op(FunctionLibraryDefinition::kDeviceRetOp);// 对应 core/ops/function_ops.cc."_DeviceRetval"
       } else {
-        gnode->set_op(FunctionLibraryDefinition::kRetOp);
+        gnode->set_op(FunctionLibraryDefinition::kRetOp);// 对应 core/ops/function_ops.cc."_Retval"
       }
-      AddInput(nodes_.size() - 1, item->nid, item->idx + i);
+      AddInput(nodes_.size() - 1, item->nid, item->idx + i);//为该gnode加入input索引,其中item->nid指向src_node即能处理signature.output_arg所表示的输出的那个FunctionDef.node_def,(item->idx + i)则表示则是该output_arg输出的第几个元素
       DataType dtype = ret_def.is_ref() ? MakeRefType(dtypes[i]) : dtypes[i];
       AddAttr("T", dtype, gnode);
       AddAttr("index", (*ret_index)++, gnode);
@@ -803,18 +803,18 @@ Status InstantiateFunction(const FunctionDef& fdef, AttrSlice attr_values,
   node_attrs.resize(fdef.node_def_size());
   for (int i = 0; i < fdef.node_def_size(); ++i) {
     for (auto attr : fdef.node_def(i).attr()) {
-      if (!SubstitutePlaceholders(substitute, &attr.second)) {//BT图 BT自定函 找到 func_def.node_def中val为placeholder的attr,用上面定义的substitute闭包函数计算出的值取代placeholder
+      if (!SubstitutePlaceholders(substitute, &attr.second)) {//BT图 BT自定函 找到 func_def.node_def中val为placeholder的attr,在上面定义的substitute闭包用attr_values中的实际值取代placeholder
         return errors::InvalidArgument("Failed to bind all placeholders in ",//funcDef.nde_def的所有attr应该都是placeholder，否则SubstitutePlaceholders()返回false并报错 ??? 为何要这样
                                        SummarizeAttrValue(attr.second));
       }
-      if (!node_attrs[i].insert(attr).second) {//处理过的func_def.node_def.attr作为KeyValuePair加入node_attrs[i]
+      if (!node_attrs[i].insert(attr).second) {//placeholder已被替换成实际值的func_def.node_def.attr作为KeyValuePair加入node_attrs[i]
         return errors::Internal("Somehow duplicated: ", attr.first);
       }
     }
-    TF_RETURN_IF_ERROR(//BT图 BT自定函 对于funcDef.nde_def中没有,但对应的OpDef中有且有默认值的attr,作为KeyValuePair加入到node_attrs[i].其Value是默认值
+    TF_RETURN_IF_ERROR(//BT图 BT自定函 对于funcDef.nde_def中没有,但对应的OpDef中有的且有默认值的attr,作为KeyValuePair加入到node_attrs[i].其Value是默认值
         AddDefaultAttrs(fdef.node_def(i).op(), get_function, &node_attrs[i]));//注意,在eager场景'fdef.node_def(i).op()'并不是转成funcDef后的signature,而是转func前的原op的名字
   }
-  //BT图 BT自定函 至此.func_def中所有node_def.attr都已经填上实际值
+
   for (int i = 0; i < fdef.node_def_size(); ++i) {
     s = helper.BuildNodeOutputIndex(fdef.node_def(i), AttrSlice(&node_attrs[i]),
                                     result->nodes.size() + i);
@@ -1731,7 +1731,7 @@ std::set<string> ReachableFunctions(
     }
   };
 
-  // Add all functions that are directly called from the optimized graph.
+  // Add all functions that are directly called from the optimized graph.//BTCPP for_each
   std::for_each(nodes.begin(), nodes.end(), process_node);
 
   // Process all reachable functions.

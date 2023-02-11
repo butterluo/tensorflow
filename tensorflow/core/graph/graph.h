@@ -547,7 +547,7 @@ class Graph {
 
   // Adds a new node to this graph, and returns it. Infers the Op and
   // input/output types for the node. *this owns the returned instance.
-  // Returns nullptr and sets *status on error.
+  // Returns nullptr and sets *status on error.//基于NodeDef调用AllocateNode()构建Node,Graph.nodes_会加入该Node
   Node* AddNode(NodeDef node_def, Status* status);
 
   // Same as above, but using StatusOr. This method is always preferred.

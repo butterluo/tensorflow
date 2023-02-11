@@ -736,7 +736,7 @@ Status GetGraphAndArgRets(
   *graph = std::unique_ptr<Graph>(fbody->graph);
   arg_nodes->reserve(fbody->arg_nodes.size());
   std::copy(fbody->arg_nodes.begin(), fbody->arg_nodes.end(),
-            std::back_inserter(*arg_nodes));
+            std::back_inserter(*arg_nodes));//BTCPP copy with back_inserter
   ret_nodes->reserve(fbody->ret_nodes.size());
   std::copy(fbody->ret_nodes.begin(), fbody->ret_nodes.end(),
             std::back_inserter(*ret_nodes));
@@ -784,7 +784,7 @@ ProcessFunctionLibraryRuntime::OptimizeFunctionGraph(
   GraphDef graph_def;
   graph->ToGraphDef(&graph_def);
   FunctionLibraryDefinition reachable_lib_def =
-      lib_def->ReachableDefinitions(graph_def);
+      lib_def->ReachableDefinitions(graph_def);//BT自定函 BT图 *注意*,这里寻找reachable_lib_def的逻辑会导致eager场景下reachable_lib_def=null或不包含之前由EagerOperation转换成的FunctionDef
   *graph_def.mutable_library() = reachable_lib_def.ToProto();
   if (options.graph_collector != nullptr) {
     options.graph_collector->CollectRawGraph(graph_def);//BT图 ???这里Graph再转成GraphDef貌似只是为了做记录?graph_collector->CollectRawGraph(graph_def)有什么用呢?
@@ -824,9 +824,9 @@ ProcessFunctionLibraryRuntime::OptimizeFunctionGraph(
       options.config_proto.allow_soft_placement() ? default_device : nullptr));
 
   // The runtime shouldn't depend on duplication between the function library
-  // owned by the graph and the one owned by the runtime. To ensure this, for
-  // now we ensure that the graph function library is empty and the runtime
-  // library receives the query from LookUps on the graph function library.
+  // owned by the graph and the one owned by the runtime. To ensure this, for 
+  // now we ensure that the graph function library is empty and the runtime  下面两行代码的意思是清空grph原有保存的func和grad, 
+  // library receives the query from LookUps on the graph function library.  而让grph在 reachable_lib_def 中查找func和grad.
   graph->mutable_flib_def()->set_default_registry(&reachable_lib_def);
   graph->mutable_flib_def()->Clear();//BT自定函 FunctionLibraryDefinition.Clear() framework/function.h:460 function.cc:1516 // Removes all the functions and gradient functions.
 
@@ -971,7 +971,7 @@ Status ProcessFunctionLibraryRuntime::InstantiateMultiDevice(
 
   auto& graph = optimized_graph_info.graph;
   graph->mutable_flib_def()->set_default_registry(//BT自定函 BT图优 在中用'set_default_registry(nullptr)'清空,这里有塞回来,是何故??? 只是为了函数间解耦与职责分明?
-      &(optimized_graph_info.lib_def));
+      &(optimized_graph_info.lib_def));           //注意,在eager场景,optimized_graph_info.lib_def中会丢失之前由EagerOperation转成的FunctionDef的信息,具体见OptimizeFunctionGraph()注释
 
   // Expand the nodes assigned to a CompositeDevice before graph partition to
   // avoid generating a subgraph on a virtual device for execution.

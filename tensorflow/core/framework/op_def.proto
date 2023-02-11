@@ -30,8 +30,8 @@ message OpDef {
     string description = 2;
 
     // Describes the type of one or more tensors that are accepted/produced   这里的type/type_attr/number_attr/type_list_attr其实都是描述某个input/output arg的数据类型。
-    // by this input/output arg.  The only legal combinations are:            只是这些字段除了type具体指定了某个数据类型外,其他都是一个name,指向该OpDef.attr字段,在attr中有相同名字的那个attr就是相应的类型的详细说明. 当然OpDef.attr只是定义描述,具体的值保存在相应的NodeDef的attr属性中.
-    // * For a single tensor: either the "type" field is set or the           
+    // by this input/output arg.  The only legal combinations are:            只是这些字段除了type具体指定了某个数据类型外,其他都是一个name,指向该OpDef.attr字段,
+    // * For a single tensor: either the "type" field is set or the           在attr中有相同名字的那个attr就是相应的类型的详细说明. 当然OpDef.attr只是定义描述,具体的值保存在相应的NodeDef的attr属性中.
     //   "type_attr" field is set to the name of an this.attr with type "type".
     // * For a sequence of tensors with the same type: the "number_attr"
     //   field will be set to the name of an this.attr with type "int", and
@@ -76,9 +76,9 @@ message OpDef {
   // operations (i.e. functions) which want to name different control outputs.
   repeated string control_output = 20;
 
-  // Description of the graph-construction-time configuration of this
-  // Op.  That is to say, this describes the attr fields that will     在个attr只是个定义描述,具体的值保存在相应的NodeDef的attr属性中.
-  // be specified in the NodeDef.
+  // Description of the graph-construction-time configuration of this 在个attr只是个定义描述,具体的值保存在相应的NodeDef的attr属性中.
+  // Op.  That is to say, this describes the attr fields that will    attr除了该OpDef自身的属性,也包含了OpDef.input/output_arg中 type_attr/number_attr/type_list_attr 提到的属性
+  // be specified in the NodeDef.                                      
   message AttrDef {
     // A descriptive name for the argument.  May be used, e.g. by the
     // Python client, as a keyword argument name, and so should match

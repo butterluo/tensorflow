@@ -30,7 +30,7 @@ struct SafeTensorId;
 // Identifier for a tensor within a step.
 // first == operation_name, second == output_index
 // Note: does not own backing storage for name.
-struct TensorId : public std::pair<StringPiece, int> {
+struct TensorId : public std::pair<StringPiece, int> {//BTCPP
   typedef std::pair<StringPiece, int> Base;
 
   // Inherit the set of constructors.

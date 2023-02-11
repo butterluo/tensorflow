@@ -12,33 +12,37 @@ option java_multiple_files = true;
 option java_package = "org.tensorflow.framework";
 option go_package = "github.com/tensorflow/tensorflow/tensorflow/go/core/framework/function_go_proto";
 
-// A library is a set of named functions.
+// A library is a set of named functions.    中文注释不是对翻译,而是补充
 message FunctionDefLibrary {
   repeated FunctionDef function = 1;
   repeated GradientDef gradient = 2;
   repeated RegisteredGradient registered_gradients = 3;
 }
 
-// A function can be instantiated when the runtime can bind every attr
-// with a value. When a GraphDef has a call to a function, it must
+// A function can be instantiated when the runtime can bind every attr     eager模式下EagerOperation如何转成FunctionDef,参考: core/common_runtime/eager/execute.cc.WrapInCallOp()
+// with a value. When a GraphDef has a call to a function, it must         FunctionDef如何转成图的多个节点,参考: core/framework/function.cc.InstantiateFunction()及其对FunctionInstantiationHelper各函数的调用
 // have binding for every attr defined in the signature.
 //
 // TODO(zhifengc):
 //   * device spec, etc.
 message FunctionDef {
-  // The definition of the function's name, arguments, return values,
-  // attrs etc.
+  // 表示该函数的签名.signature的name表示函数名,input_arg表示函数输入,output_arg表示函数输出.
+  // 函数转图时,每个input_arg会转成一个(type_attr时)或多个(number_attr或type_list_attr表示的每个元素对应一个)NodeDef.
+  //    转出的NodeDef.name为"input_arg.name"(一个input_arg对应一个NodeDef时)或为"input_arg.name:转换出的NodeDef的序号",其中‘NodeDef的序号'来自该Node是由原input_arg的第几个元素(number_attr或type_list_attr时的第几个type)得来
+  //      op为kDeviceArgOp或kArgOp
+  // The definition of the function's name, arguments, return values,  
+  // attrs etc.                                                      
   OpDef signature = 1;
 
-  // Attributes specific to this function definition.
+  // Attributes specific to this function definition.       函数自己的attr
   map<string, AttrValue> attr = 5;
 
   // Attributes for function arguments. These attributes are the same set of
   // valid attributes as to _Arg nodes.
   message ArgAttrs {
-    map<string, AttrValue> attr = 1;
+    map<string, AttrValue> attr = 1;//key是signature某个input_arg中type_attr/number_attr/type_list_attr 提到的属性名,val就是对应的AttrValue
   }
-  map<uint32, ArgAttrs> arg_attr = 7;
+  map<uint32, ArgAttrs> arg_attr = 7;//signature.input_arg中 type_attr/number_attr/type_list_attr 提到的属性及其AttrValue. key<uint32>表示第几个input_arg
 
   // Unique IDs for each resource argument, used to track aliasing resources. If
   // Argument A and Argument B alias each other, then
@@ -85,17 +89,30 @@ message FunctionDef {
   // * "node:out::-1" gives a list with all but the last element in a
   //   node output list
 
-  // The body of the function.  Unlike the NodeDefs in a GraphDef, attrs
-  // may have values of type `placeholder` and the `input` field uses
-  // the "output" format above.
+  // 多个node_def表示函数体,每个node_def都对应一个op.即一个函数是由多个op相互依赖组织而成.而op只表示一个原子操作,node负责了op之间的调用关系.node_def.input则表示了这些调用和依赖关系.
+  // node_def每个input是个字符串,格式为"src_node.name:src_node.op.output_arg.name"表示这个输入来自src_node所携带的op中的哪个output_arg
+  // 若某node_def负责函数的输入,此时node_def.input格式为"signature.input_arg.name"或"signature.input_arg.name:0"
+  // 若某node_def负责函数的输出,则FunctionDef.ret中保存了signature.output_arg与该node_def的关系,参考ret的注释
+  // node_def的attr可以是placeholder,此时它的值需要在运行时确定并用实际值替换
+  // 函数转图时,一个node_def对应一个图的NodeDef,
+  //   转出的NodeDef.input的格式:
+  //     1,输入来自其他node_def的输出时,为"src_node.name:src_node.op.output_arg的序号"表示该输入来自哪个src_node的第几个output_arg,若src_node只有一个output则可省略序号;
+  //     2,输入来自signature.input_arg时为"signature.input_arg转成的NodeDef名字"见上面对signature的注释
+  // The body of the function.  Unlike the NodeDefs in a GraphDef, attrs   
+  // may have values of type `placeholder` and the `input` field uses      
+  // the "output" format above.                                            
 
-  // By convention, "op" in node_def is resolved by consulting with a
-  // user-defined library first. If not resolved, "func" is assumed to
-  // be a builtin op.
+  // By convention, "op" in node_def is resolved by consulting with a      
+  // user-defined library first. If not resolved, "func" is assumed to    
+  // be a builtin op.                                                     
   repeated NodeDef node_def = 3;
 
-  // A mapping from the output arg names from `signature` to the
-  // outputs from `node_def` that should be returned by the function.
+  // 表示signature.output_arg所表示的函数输出来自哪个node_def.op.output_arg. k是signature.output_arg.name;v是"node_def.name:node_def.op.output_arg.name"
+  // 函数转图时,一个signature.output_arg转成一个或多个(number_attr或type_list_attr表示的每个元素对应一个)NodeDef.
+  //    转出的NodeDef.op为kDeviceRetOp或kRetOp.名字格式为"signature.output_arg.name加上_RetVal后缀",如果一个output_arg转成多个NodeDef则在名字上再加上转出来的NodeDef的序号
+  //    转出的NodeDef.input是个字符串,格式为负责函数输出的那个node_def.name,如果该node_def有多个output_arg或output_arg内有number_attr/type_list_attr则把要在input字符串后加上每个元素type的序号
+  // A mapping from the output arg names from `signature` to the           
+  // outputs from `node_def` that should be returned by the function.     
   map<string, string> ret = 4;
 
   // A mapping from control output names from `signature` to node names in

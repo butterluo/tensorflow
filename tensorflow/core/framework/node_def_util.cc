@@ -767,7 +767,7 @@ Status NameRangesForNode(const AttrSlice& attrs, const OpDef& op_def,
   }
   return OkStatus();
 }
-
+//BT算子 node_def中没有的attr,但在op_def中存在且有默认值,则把该attr及其默认值拷贝给node_def.attr
 void AddDefaultsToNodeDef(const OpDef& op_def, NodeDef* node_def) {
   for (const auto& attr_def : op_def.attr()) {
     AttrSlice attrs(*node_def);

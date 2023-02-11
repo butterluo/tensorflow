@@ -50,7 +50,7 @@ message NodeDef {
   // choose a device automatically.
   string device = 4;
 
-  // Operation-specific graph-construction-time configuration.
+  // Operation-specific graph-construction-time configuration.      NodeDef.op对应的OpDef中attr的具体AttrValue. 因OpDef.attr只是个定义
   // Note that this should include all attrs defined in the
   // corresponding OpDef, including those with a value matching
   // the default -- this allows the default to change and makes
