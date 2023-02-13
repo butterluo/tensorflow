@@ -1000,7 +1000,7 @@ Status ProcessFunctionLibraryRuntime::InstantiateMultiDevice(
   for (const auto& pair : subgraphs) {
     DumpGraph(strings::StrCat("Before running POST_PARTITIONING passes (",
                               pair.first, ")"),
-              pair.second.get());
+              pair.second.get());//BT图 DumpGraph()可了解图构造 BTTODO
   }
 
   GraphOptimizationPassOptions optimization_options;
@@ -1014,7 +1014,7 @@ Status ProcessFunctionLibraryRuntime::InstantiateMultiDevice(
   // run the passes here.
   const bool should_run_optimization_passes = !options.is_component_function;
   if (should_run_optimization_passes) {
-    TF_RETURN_IF_ERROR(OptimizationPassRegistry::Global()->RunGrouping(
+    TF_RETURN_IF_ERROR(OptimizationPassRegistry::Global()->RunGrouping(//BT图优 BTTODO
         OptimizationPassRegistry::POST_PARTITIONING, optimization_options));
   }
 
@@ -1040,7 +1040,7 @@ Status ProcessFunctionLibraryRuntime::InstantiateMultiDevice(
       GraphDef def;
       pair.second->ToGraphDef(&def);
       *def.mutable_library() = lib_def->ReachableDefinitions(def).ToProto();
-      options.graph_collector->CollectPartitionedGraph(def);
+      options.graph_collector->CollectPartitionedGraph(def);//???
     }
   }
 

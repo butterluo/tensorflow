@@ -117,7 +117,7 @@ Status EagerExecutor::SyncExecute(EagerNode* node) {
   // Inline execution in sync mode.
   s = node->Run();
   tensorflow::mutex_lock l(node_queue_mutex_);
-  NotifyWaiters(id);
+  NotifyWaiters(id);//BT多线程 同步执行要notify什么???
   return s;
 }
 

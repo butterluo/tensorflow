@@ -978,7 +978,7 @@ inline gtl::iterator_range<NodeIter> Graph::nodes() const {
   // node be removed from the graph.
   return gtl::make_range(NodeIter(this, 0), NodeIter(this, num_node_ids()));
 }
-
+// Access to the list of all nodes, excluding the Source and Sink nodes.
 inline gtl::iterator_range<NodeIter> Graph::op_nodes() const {
   // Note that NodeId 0 is always valid since we don't let the source
   // node be removed from the graph.
@@ -988,10 +988,10 @@ inline gtl::iterator_range<NodeIter> Graph::op_nodes() const {
   // nodes. This method (op_nodes()) relies on this invariant.
   NodeIter begin(this, 0);
   NodeIter end(this, num_node_ids());
-  if (begin != end) {
+  if (begin != end) {//excluding the Source nodes.
     ++begin;
   }
-  if (begin != end) {
+  if (begin != end) {//excluding the Sink nodes.
     ++begin;
   }
   return gtl::make_range(begin, end);

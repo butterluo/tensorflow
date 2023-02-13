@@ -1331,7 +1331,7 @@ Status AddOrExecuteNode(core::RefCountPtr<KernelAndDevice> kernel,
         op_id, /* is_component_function= */ false, /* step_id= */ std::nullopt};
 #endif  // !IS_MOBILE_PLATFORM
   }
-  if (executor.Async()) {
+  if (executor.Async()) {//BTBT 是否async需要在py端构造context时就传入,EagerContext构造函数中会根据入参构造async/sync的EagerExecutor
     const DataTypeVector& output_dtypes = kernel->output_dtypes();
     for (int i = 0, end = num_outputs; i < end; ++i) {
       Device* output_device = ctx.CanonicalDevice(kernel->OutputDevice(i));

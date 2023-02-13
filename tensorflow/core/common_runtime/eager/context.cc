@@ -172,7 +172,7 @@ EagerContext::EagerContext(
       pin_small_ops_to_cpu_(ReadBoolFromEnvVar(//BT性能
           "TF_EAGER_ENABLE_SMALL_TENSOR_CPU_PINNING", false)),
       run_eager_op_as_function_(run_eager_op_as_function),//BT性能
-      jit_compile_rewrite_(jit_compile_rewrite) {//BT性能  BTJIT
+      jit_compile_rewrite_(jit_compile_rewrite) {         //BT性能  BTJIT
   ResetPFLR(device_mgr, opts.env, &opts.config, TF_GRAPH_DEF_VERSION,
             &func_lib_def_, opts.config.graph_options().optimizer_options(),
             thread_pool_.get(), cluster_flr);

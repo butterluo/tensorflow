@@ -189,7 +189,7 @@ class GraphConstructor {
     TF_RETURN_IF_ERROR(EnsureNoNameCollisions());
     TF_RETURN_IF_ERROR(ValidateInputMapAndControlDependencies());
     TF_RETURN_IF_ERROR(BuildNodeIndex());// Validate the node names and add them to gdef_nodes_ and gdef_prefixes_.将node的部分信息插入gdef_nodes_供后续使用,后续的一些逻辑需要基于这些信息是否完善的判断来进行.node name 若有prefix也插入 gdef_prefixes_
-    TF_RETURN_IF_ERROR(InitFromEdges());//初始化 pending_count_,outputs_，ready_,分别保存各node为处理的input数,各node出度的nodes的idx,input都处理完可进入下一步处理的node.这些数据结构主要供下一步Convert()中把nodes转成Graph用.
+    TF_RETURN_IF_ERROR(InitFromEdges());//初始化 pending_count_,outputs_，ready_,分别保存各node没处理的input数,各node出度的nodes的idx,input都处理完可进入下一步处理的node.这些数据结构主要供下一步Convert()中把nodes转成Graph用.
 
     // NOTE: Convert() invokes `consume_node_def()` on each node in the input
     // graph, so `get_node_def()` is no longer usable once it is called.
@@ -724,7 +724,7 @@ Status GraphConstructor::InitFromEdges() {
     }
     for (int i = 0; i < node_def.input_size(); ++i) {
       StringPiece input_name = node_def.input(i);
-      TensorId id(ParseTensorName(input_name));
+      TensorId id(ParseTensorName(input_name));// Parse either a name, ^name, or name:digits.  TensorId.first是name,second是idx(如果有的话)
       if (opts_.input_map.count(id) == 0) {//若没传入input_map则此也为true
         // If an input is not mapped, then the input should appear in the graph
         // being imported.
@@ -745,7 +745,7 @@ Status GraphConstructor::InitFromEdges() {
     if (pending_count == 0) {
       ready_.insert(n);//若node无pending(没处理)的input或者无input,都会放入ready_队列
     }
-    pending_count_.push_back(pending_count);//pending_count_ 保存了各个node的为处理的input数
+    pending_count_.push_back(pending_count);//pending_count_ 保存了各个node的未处理的input数
   }
   return OkStatus();
 }
@@ -1177,7 +1177,7 @@ Status GraphConstructor::Convert() {
     DCHECK_EQ(node_def.input_size(), input_already_exists.size());
     TF_RETURN_IF_ERROR(ValidateColocationConstraints(node_def));
     for (int i = 0; i < node_def.input_size(); ++i) {
-      TensorId tensor_id = ParseTensorName(node_def.input(i));//tensor_id仅用于承载src_node name 和 src_node output idx,没其他用途
+      TensorId tensor_id = ParseTensorName(node_def.input(i));//TensorId 仅用于承载src_node name 和 src_node output idx,没其他用途
       Node* src_node;
       int src_index;
 
@@ -1275,7 +1275,7 @@ Status GraphConstructor::Convert() {
 
     TF_RETURN_IF_ERROR(ValidateShape(node));
 
-    // Update pending_count_ for outputs. //BT图 这里会插入 ready_，从而继续循环 while(!ready.empty())
+    // Update pending_count_ for outputs. //BT图 node相应的 pending_count_-1,如果-1后为0,则插入 ready_，从而继续循环 while(!ready.empty())
     UpdatePendingCountAndReady(o, node->IsNextIteration());
   }
 

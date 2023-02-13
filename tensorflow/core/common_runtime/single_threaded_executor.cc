@@ -292,7 +292,7 @@ class SingleThreadedExecutorImpl : public Executor {
 
     // TODO(mrry): Can we avoid copying into these vectors? Consider modifying
     // OpKernelContext to take the TensorValueVec as a pointer into `inputs`.
-    TensorValueVec node_inputs;
+    TensorValueVec node_inputs;//HERE
     AllocatorAttributeVec input_alloc_attrs;
 
     // Override intra op thread pool if requested.
@@ -442,7 +442,7 @@ class SingleThreadedExecutorImpl : public Executor {
       OpKernelContext ctx(&params, num_outputs);
 
       // Actually execute the kernel.
-      device->Compute(kernel_state.kernel, &ctx);
+      device->Compute(kernel_state.kernel, &ctx);//HERE
       TF_RETURN_IF_ERROR(ctx.status());
 
       // Free the inputs to the current kernel.

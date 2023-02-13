@@ -979,7 +979,7 @@ void SetIncarnation(const PartitionOptions& opts, GraphDef* gdef) {
 }
 
 Status Partition(const PartitionOptions& opts, Graph* g,
-                 std::unordered_map<string, GraphDef>* partitions) {
+                 std::unordered_map<string, GraphDef>* partitions) {//BT图 BT分布式 BTTODO
   Status status;
   partitions->clear();
 
@@ -990,14 +990,14 @@ Status Partition(const PartitionOptions& opts, Graph* g,
     // new graph is an equivalent transformation of the original graph and
     // has the property that it can be subsequently partitioned arbitrarily
     // (down to the level of individual device) for distributed execution.
-    status = AddControlFlow(opts, g, &g_info);
+    status = AddControlFlow(opts, g, &g_info); //BT图 BT分布式 初始化GraphInfo的 std::vector<ControlFlowInfo> cf_info 的信息.
     if (!status.ok()) return status;
   }
 
   // At this point, all the graph mutations have been done. Build memory
   // and device type info for every node and edge in the graph.
-  status = BuildMemoryDeviceInfo(*g, &g_info);
-  if (!status.ok()) return status;
+  status = BuildMemoryDeviceInfo(*g, &g_info);//BT图 BT分布式 初始化GraphInfo的device_types(即CPU,GPU之类)和input_types&output_types(即input/output是放在device memory还是host memory)
+  if (!status.ok()) return status;//BTTODO eager场景是在core/common_runtime/process_function_library_runtime.cc:465中统一为Node设device,但要追溯来源和这样做的原因
 
   string dstp;
   std::vector<const Edge*> inputs;
@@ -1012,7 +1012,7 @@ Status Partition(const PartitionOptions& opts, Graph* g,
   int32_t num_data = 0;
   int32_t num_control = 0;
   for (const Node* dst : g->op_nodes()) {
-    dstp = opts.node_to_loc(dst);
+    dstp = opts.node_to_loc(dst);//默认调node.assigned_device_name(),使得每个device一个sub graph. ***也可自定义node_to_loc改变sub graph的划分方式
     GraphDef* dst_graph = &(*partitions)[dstp];
     NodeDef* dst_def = dst_graph->add_node();
     *dst_def = dst->def();
