@@ -297,7 +297,7 @@ class AllocatorWrapper : public Allocator {
 // runtime we may choose to allocate CPU ram from special regions
 // that have been prepared for higher performance in some use
 // contexts, e.g. doing DMA with particular devices.  For these
-// reasons, the Device interface does not expose just one memory
+// reasons, the Device interface does not expose just one memory    //BT性能 BT缓存 BT设备
 // Allocator, but instead provides an accessor that takes a
 // specification of the desired memory attributes in order to select
 // an Allocator.
@@ -311,7 +311,7 @@ class AllocatorWrapper : public Allocator {
 //  attr.set_on_host(true);
 //  Allocator* a = allocator(attr);
 struct AllocatorAttributes {
-  void set_on_host(bool v) { value |= (static_cast<int>(v)); }
+  void set_on_host(bool v) { value |= (static_cast<int>(v)); }//BT性能 注意如何用位操作做每个属性的判断 BTTODO
   bool on_host() const { return value & 0x1; }
   void set_nic_compatible(bool v) { value |= (static_cast<int>(v) << 1); }
   bool nic_compatible() const { return value & (0x1 << 1); }

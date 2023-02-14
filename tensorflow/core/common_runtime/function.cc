@@ -937,12 +937,12 @@ Status FunctionLibraryRuntimeImpl::CreateItem(Item** item) {
       flr->GetFunctionLibraryDefinition();
   auto g = std::make_unique<Graph>(lib_def);
   CopyGraph(*fbody->graph, g.get());
-
+  //BT自定函 BT图 BT图优 对func body对应的graph进行剪枝和优化
   PruneFunctionBody(fbody->fdef, g.get());
   optimizer_.Optimize(this, env(), device(), &g, GraphOptimizer::Options());
   TF_RETURN_IF_ERROR(EnsureMemoryTypes(DeviceType(device()->device_type()),
                                        device()->name(), g.get()));
-
+  //Executor 是基于优化后的func graph构建的
   // Creates an executor based on the g. This must be done without
   // holding mu_ because create_kernel_ calls back into the library.
   LocalExecutorParams params;
@@ -956,7 +956,7 @@ Status FunctionLibraryRuntimeImpl::CreateItem(Item** item) {
     params.create_kernel =
         [this, flr](const std::shared_ptr<const NodeProperties>& props,
                     OpKernel** kernel) {
-          return CreateKernel(props, flr, kernel);
+          return CreateKernel(props, flr, kernel);                       //FunctionLibraryRuntimeImpl.create_kernel 其实也是调这个CreateKernel
         };
   }
   params.delete_kernel = [](OpKernel* kernel) {
@@ -972,15 +972,15 @@ Status FunctionLibraryRuntimeImpl::CreateItem(Item** item) {
   }
 
   metrics::IncrementTestCounter("flr_executor",
-                                (executor_type == "SINGLE_THREADED_EXECUTOR")
-                                    ? "single_threaded"
-                                    : "default");
+                                (executor_type == "SINGLE_THREADED_EXECUTOR")//BT图执行 目前就两种Executor(common_runtime/executor.h),由ExecutorFactory(common_runtime/executor_factory.cc)及其子类创建:
+                                    ? "single_threaded"                             //一种"SINGLE_THREADED_EXECUTOR"对应SingleThreadedExecutorImpl(common_runtime/single_threaded_executor.cc)由同文件的SingleThreadedExecutorRegistrar::Factory.NewExecutor()创建
+                                    : "default");                                   //另一种"DEFAULT"对应ExecutorImpl(common_runtime/executor.cc)由同文件的DefaultExecutorRegistrar::Factory.NewExecutor()创建
 
   TF_RETURN_IF_ERROR(NewExecutor(executor_type, params, *g, &exec));
   {
     // Guard item since it is already inserted in items_.
     mutex_lock l(mu_);
-    if ((*item)->exec == nullptr) {
+    if ((*item)->exec == nullptr) {//优化后的func graph和基于该graph构建的Executor都赋值给item以缓存起来
       (*item)->graph = std::move(g);
       (*item)->exec = exec.release();
     }

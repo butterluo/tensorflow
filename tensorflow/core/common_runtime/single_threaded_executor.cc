@@ -86,7 +86,7 @@ class SingleThreadedExecutorImpl : public Executor {
     // Topologicially sort `graph` to get a sequence of OpKernels.
     std::vector<Node*> ordered_nodes;
     ordered_nodes.reserve(graph.num_nodes());
-    GetReversePostOrder(graph, &ordered_nodes);
+    GetReversePostOrder(graph, &ordered_nodes);//BTALG 后序遍历的反转(反向)???
     int ordered_nodes_size = ordered_nodes.size();
     if (ordered_nodes_size != graph.num_nodes()) {
       return errors::InvalidArgument("Graph had ", graph.num_nodes(),
@@ -119,7 +119,7 @@ class SingleThreadedExecutorImpl : public Executor {
                                          " in node ", n->name());
         }
         arg_index_to_node_map[arg_index] = n;
-        // We do not create a kernel for Arg nodes, and instead inline the
+        // We do not create a kernel for Arg nodes, and instead inline the BT图优 BT性能
         // argument handling directly in the executor code.
         continue;
       }
@@ -129,7 +129,7 @@ class SingleThreadedExecutorImpl : public Executor {
 
       const Tensor* const_tensor;
       if (n->num_outputs() == 1 && (const_tensor = kernel->const_tensor())) {
-        // Nodes that produce a single constant tensor are handled specially:
+        // Nodes that produce a single constant tensor are handled specially:   //BT性能 BT张量
         // we evaluate the tensor once, and propagate it to its consumers as
         // a `const Tensor*`, to avoid refcount manipulation.
         const size_t kernel_index = const_tensor_kernels_.size();
@@ -455,7 +455,7 @@ class SingleThreadedExecutorImpl : public Executor {
         TensorValue val = ctx.release_output(j);
         const size_t num_destinations = kernel_state.output_locations[j].size();
         if (num_destinations > 0) {
-          // TODO(mrry): Consider flattening the `output_locations` vector
+          // TODO(mrry): Consider flattening the `output_locations` vector      //BT性能 BTTODO
           // to improve the cache-friendliness of this loop.
           for (size_t k = 0; k < num_destinations - 1; ++k) {
             // TODO(mrry): Validate that the types match the expected values or
