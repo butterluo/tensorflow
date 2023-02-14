@@ -383,10 +383,10 @@ class SingleThreadedExecutorImpl : public Executor {
             // NOTE: We must make at least one shallow copy of the argument
             // tensor that remains live until all consuming kernels have
             // executed, to keep the reference count > 1, and inhibit buffer
-            // forwarding. For simplicity, we shallow copy into the input entry
+            // forwarding. For simplicity, we shallow copy into the input entry  //BT性能 ???
             // for each consuming kernel.
             input.state = Entry::State::HAS_VALUE;
-            input.val.Init(*arg);
+            input.val.Init(*arg);//BT性能 这个貌似调的复制构造函数??? 是不是上面CanConsumeArg的分支性能更好? 但Entry中ManualConstructor的实现值得考究,紧凑且对齐地使用内存
           }
         }
       }

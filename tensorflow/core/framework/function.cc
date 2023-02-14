@@ -1151,7 +1151,7 @@ Status FunctionCallFrame::SetArgs(gtl::ArraySlice<Tensor> args) {
           "Expects arg[", i, "] to be ", DataTypeString(arg_types_[i]), " but ",
           DataTypeString(args[i].dtype()), " is provided");
     }
-    args_[i] = args[i];
+    args_[i] = args[i];     //BT性能 ??? 这里是复制么?不会很慢么 
   }
   return OkStatus();
 }
