@@ -1305,14 +1305,14 @@ Status ProcessFunctionLibraryRuntime::RunMultiDeviceSync(
                          InternalArgs* args)>
         get_component_args) const {
   const MultiDeviceFunctionData* data;
-  Status prepare_status = PrepareRunMultiDevice(opts, outer_handle, &data);
+  Status prepare_status = PrepareRunMultiDevice(opts, outer_handle, &data);//BT图执行 获取 data<MultiDeviceFunctionData>
   if (!prepare_status.ok()) {
     return prepare_status;
   }
 
   FunctionLibraryRuntime::Options opts_copy = opts;
 
-  // Sort the subgraphs topologically before execution to avoid deadlock:
+  // Sort the subgraphs topologically before execution to avoid deadlock: BT图 BT图执行 AsyncAttributes::kSendOnly的子图排前面先执行. 详见注释
   //
   // Because subgraphs will not execute in parallel here, dependencies between
   // subgraphs cannot be resolved automatically. In contrast, with multi-
@@ -1330,14 +1330,14 @@ Status ProcessFunctionLibraryRuntime::RunMultiDeviceSync(
   std::vector<string> subgraph_keys = GetOrderedSubgraphs(data);
 
   for (const string& target : subgraph_keys) {
-    const ComponentFunctionData& comp_data = data->glue_.at(target);
+    const ComponentFunctionData& comp_data = data->glue_.at(target);    //通过MultiDeviceFunctionData(代笔整图)获取ComponentFunctionData(代表旗下每个子图)
     FunctionLibraryRuntime::Handle comp_handle = comp_data.handle;
 
     opts_copy.args_alloc_attrs = comp_data.arg_alloc_attrs;
     opts_copy.rets_alloc_attrs = comp_data.ret_alloc_attrs;
 
     InternalArgs comp_args;
-    Status args_status = get_component_args(comp_data, &comp_args);
+    Status args_status = get_component_args(comp_data, &comp_args);     //获取输入数据并放到 InternalArgs comp_args 中
     if (!args_status.ok()) {
       VLOG(2) << "Failed to get component function arguments: " << args_status;
       return args_status;
@@ -1346,7 +1346,7 @@ Status ProcessFunctionLibraryRuntime::RunMultiDeviceSync(
 
     VLOG(1) << "Running component function on device " << target << " from "
             << data->function_name_ << " with handle " << comp_handle;
-    FunctionLibraryRuntime* flr = GetFLR(target);
+    FunctionLibraryRuntime* flr = GetFLR(target);                        //获取target device对应的 FunctionLibraryRuntime. ???每个涉及的device都会被初始化一个flr么?
     if (flr != nullptr) {
       opts_copy.remote_execution = false;
       // When target device has private thread pool, use the target device
@@ -1357,7 +1357,7 @@ Status ProcessFunctionLibraryRuntime::RunMultiDeviceSync(
 
       std::vector<Tensor> comp_tensor_rets;
       Status run_status =
-          flr->RunSync(opts_copy, comp_handle, GetLocalArgs(comp_args.args),
+          flr->RunSync(opts_copy, comp_handle, GetLocalArgs(comp_args.args),         //GetLocalArgs把封装在InternalArgs里面的输入数据Tensor又拿出来
                        &comp_tensor_rets);
       if (!run_status.ok()) {
         VLOG(2) << "Component function execution failed: " << run_status;
@@ -1945,19 +1945,19 @@ Status ProcessFunctionLibraryRuntime::RunSync(
     const FunctionLibraryRuntime::Options& orig_opts,
     FunctionLibraryRuntime::Handle handle, gtl::ArraySlice<Tensor> args,
     std::vector<Tensor>* rets) const {
-  MultiDeviceFunctionData* multi_device_data = IsMultiDevice(handle);
+  MultiDeviceFunctionData* multi_device_data = IsMultiDevice(handle);//BT图执行 获取 data<MultiDeviceFunctionData>
   if (multi_device_data && multi_device_data->enable_sync_execution) {
     metrics::IncrementTestCounter("pflr_runsync", "sync");
     FunctionLibraryRuntime::Options new_opts = orig_opts;
     Rendezvous* created_rendezvous = nullptr;
     if (!new_opts.rendezvous) {
-      TF_RETURN_IF_ERROR(CreateRendezvous(new_opts, &created_rendezvous));
+      TF_RETURN_IF_ERROR(CreateRendezvous(new_opts, &created_rendezvous));//BT通信 BTTODO
     }
 
     std::vector<FunctionRet> function_rets;
     auto get_component_args = [&args](const ComponentFunctionData& comp_data,
                                       InternalArgs* comp_args) {
-      return GetComponentArgs(args, comp_data, comp_args);
+      return GetComponentArgs(args, comp_data, comp_args);//BT图执行 BT张量 把传入的输入数据ArraySlice<Tensor> args 封装到 InternalArgs* comp_args 中
     };
 
     Status status = RunMultiDeviceSync(new_opts, handle, &function_rets,

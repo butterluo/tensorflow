@@ -71,7 +71,7 @@ Status ExecuteNodeArgs::Init(
   // be decremented once execution is complete.
   const int n_inputs = op_inputs.size();
   if (n_inputs > 0) {
-    TensorHandle* const* op_inputs_flat = &op_inputs[0];
+    TensorHandle* const* op_inputs_flat = &op_inputs[0];//BTCPP 谷歌absl库的InlinedVector是这样做迭代的么 ???
     TensorValue* tensor_args_flat = &tensor_args_[0];
     for (int i = 0; i < n_inputs; ++i) {
       TensorHandle* in = op_inputs_flat[i];

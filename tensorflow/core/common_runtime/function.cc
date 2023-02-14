@@ -1308,14 +1308,14 @@ Status FunctionLibraryRuntimeImpl::RunSync(Options opts, Handle handle,
                                            gtl::ArraySlice<Tensor> args,
                                            std::vector<Tensor>* rets) {
   Item* item = nullptr;
-  std::unique_ptr<PrivateIntraProcessRendezvous> rendezvous;
-  TF_RETURN_IF_ERROR(PrepareRunSync(handle, &opts, &item, &rendezvous));
+  std::unique_ptr<PrivateIntraProcessRendezvous> rendezvous;                    //BT图执行 BT通信 BTTODO
+  TF_RETURN_IF_ERROR(PrepareRunSync(handle, &opts, &item, &rendezvous)); //获取FunctionLibraryRuntimeImpl::Item,通过GetOrCreateItem构建Item的其他部分(含executor<SingleThreadedExecutorImpl>), BTTODO创建rendezvous
   if (item == nullptr) {
     return parent_->RunSync(opts, handle, args, rets);
   }
 
   Executor::Args exec_args;
-  const FunctionBody* fbody = GetFunctionBody(handle);
+  const FunctionBody* fbody = GetFunctionBody(handle);//来自FunctionLibraryRuntimeImpl::Item.func_graph ???但为何不从item变量获取
   FunctionCallFrame frame(fbody->arg_types, fbody->ret_types);
   TF_RETURN_IF_ERROR(frame.SetArgs(args));
   ExecutorArgsFromOptions(opts, &frame, &exec_args);

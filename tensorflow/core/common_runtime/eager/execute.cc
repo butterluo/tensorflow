@@ -1363,7 +1363,7 @@ Status AddOrExecuteNode(core::RefCountPtr<KernelAndDevice> kernel,
     return executor.AddOrExecute(std::move(node));
   } else {
     for (int i = 0, end = num_outputs; i < end; ++i) {
-      retvals[i] = nullptr;
+      retvals[i] = nullptr;//BT图执行 ??? 之前构建的TensorHandle,为什么要置空
     }
     const absl::InlinedVector<TensorHandle*, 4>* inputs;
     TF_RETURN_IF_ERROR(op->TensorHandleInputs(&inputs));
@@ -1840,7 +1840,7 @@ Status EagerKernelExecute(
   std::vector<EagerKernelRet> outputs(1);
 
   ExecuteNodeArgs inputs(op_inputs.size());
-  TF_RETURN_IF_ERROR(inputs.Init(ctx, op_inputs, kernel));
+  TF_RETURN_IF_ERROR(inputs.Init(ctx, op_inputs, kernel));//BT图执行 BT张量 拿到op_inputs中数据的引用
   // TODO(apassos) figure out how to record stats for ops which are a part of
   // functions.
   // TODO(b/111859745): When we support recovering from kernel/device errors, we

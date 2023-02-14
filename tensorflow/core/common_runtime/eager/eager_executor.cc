@@ -109,7 +109,7 @@ Status EagerExecutor::SyncExecute(EagerNode* node) {
 
   uint64 id = next_node_id_++;
 
-  Status s = node->Prepare();
+  Status s = node->Prepare();//貌似很多EagerNode子类都没实现
   if (!s.ok()) {
     return s;
   }
